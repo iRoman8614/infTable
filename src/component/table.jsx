@@ -21,8 +21,8 @@ const fetchDateData = async (date) => {
     const randomStageValue = () => stagesValues[Math.floor(Math.random() * stagesValues.length)];
 
     //вероятность получить отличающийся ответ
-    const sometimesNewAggregate = Math.random() >= 0.98;
-    const sometimesNewStageGroup = Math.random() >= 0.99;
+    const sometimesNewAggregate = Math.random() >= 0.9;
+    const sometimesNewStageGroup = Math.random() >= 0.9;
 
 
     const data = {
@@ -31,9 +31,9 @@ const fetchDateData = async (date) => {
             {"проверка кол-во": Math.floor(Math.random()*10)}
         ],
         "1 Ступень": [
-            {"20ГПА-2-1": randomStageValue()},
-            {"20ГПА-2-2": randomStageValue()},
             {"20ГПА-2-3": randomStageValue()},
+            {"20ГПА-2-4": randomStageValue()},
+            {"20ГПА-2-5": randomStageValue()},
         ],
         "2 Ступень": [
             {"20ГПА-2-12": randomStageValue()},
@@ -47,9 +47,9 @@ const fetchDateData = async (date) => {
             {"проверка кол-во": Math.floor(Math.random()*10)}
         ],
         "1 Ступень": [
+            {"20ГПА-2-1": randomStageValue()},
             {"20ГПА-2-2": randomStageValue()},
-            {"20ГПА-2-3": randomStageValue()},
-            {"20ГПА-2-4": randomStageValue()},
+            {"20ГПА-2-6": randomStageValue()},
         ],
         "2 Ступень": [
             {"20ГПА-2-10": randomStageValue()},
@@ -67,6 +67,7 @@ const fetchDateData = async (date) => {
         "1 Ступень": [
             {"20ГПА-2-4": randomStageValue()},
             {"20ГПА-2-5": randomStageValue()},
+            {"20ГПА-2-6": randomStageValue()},
         ],
         "2 Ступень": [
             {"20ГПА-2-11": randomStageValue()},
@@ -75,6 +76,7 @@ const fetchDateData = async (date) => {
             {"20ГПА-3-10": randomStageValue()},
             {"20ГПА-3-12": randomStageValue()},
             {"20ГПА-4-13": randomStageValue()},
+            {"20ГПА-4-14": randomStageValue()},
         ],
     };
 
@@ -140,25 +142,6 @@ const generateInitialDates = (daysBefore = 15, daysAfter = 15) => {
 };
 
 /**
- * Возвращает цвет фона для ячейки таблицы в зависимости от значения стадии.
- *
- * @param {string | number} stageValue - Значение стадии (напр., "М", "О", "П") или число.
- * @param {boolean} isPastDate - Флаг, указывающий, является ли дата прошедшей.
- * @returns {string} Строка с HEX-кодом цвета.
- */
-const getStageColor = (stageValue, isPastDate) => {
-    switch (stageValue) {
-        case "М": return "#C8E6C9"; // Светло-зеленый
-        case "О": return "#fde182"; // Желтоватый
-        case "П": return "#56bc5b"; // Зеленый
-        case "ПР": return "#1f68f3"; // Синий
-        case "Р": return "white";   // Белый
-        case 0: return isPastDate ? '#bbdefb' : 'white'; // Светло-синий для прошедших дат, иначе белый
-        default: return isPastDate ? '#bbdefb' : 'white'; // Светло-синий для прошедших дат, иначе белый
-    }
-};
-
-/**
  * Извлекает значение стадии для конкретного ключа из данных группы.
  * Если ключ отсутствует, возвращает значение по умолчанию.
  *
@@ -185,7 +168,7 @@ const getStageValue = (stageGroupData, key) => {
  *
  * @returns {JSX.Element} Элемент React таблицы.
  */
-export const Table = () => {
+export const Table = ({maxWidth, maxHeight, colorTheme}) => {
     // Состояние для хранения списка дат, отображаемых в таблице.
     const [dates, setDates] = useState(() => generateInitialDates());
     // Состояние для хранения данных, которые в данный момент видимы или находятся в буфере.
@@ -193,7 +176,10 @@ export const Table = () => {
     // Состояние для отслеживания дат, для которых в данный момент идет загрузка данных.
     const [loadingDates, setLoadingDates] = useState(new Set());
     // Состояние для хранения всех возможных групп стадий и их ключей, извлекаемых из данных.
+    // Теперь это объект, где ключ - это имя группы, а значение - массив ключей агрегатов в порядке их появления.
     const [allStageGroups, setAllStageGroups] = useState({});
+    // Состояние для хранения порядка групп.
+    const [groupOrder, setGroupOrder] = useState([]);
     // Референс на элемент секции, содержащей таблицу, для управления прокруткой.
     const sectionRef = useRef(null);
     // Фиксированная высота каждой строки таблицы.
@@ -214,46 +200,55 @@ export const Table = () => {
     const today = useRef(new Date());
     today.current.setHours(0, 0, 0, 0); // Обнуляем время для сравнения только по дате.
 
-    // ***************************************************************
-    // ДОБАВЛЕНО: Предпочтительный порядок групп
-    const preferredGroupOrder = ["Работающие агрегаты", "1 Ступень", "2 Ступень", "3 Ступень"];
-    // ***************************************************************
 
     /**
-     * Обновляет `allStageGroups` на основе новых загруженных данных.
-     * Это гарантирует, что заголовки столбцов всегда включают все известные агрегаты.
+     * Обновляет `allStageGroups` и `groupOrder` на основе новых загруженных данных.
+     * Это гарантирует, что заголовки столбцов всегда включают все известные агрегаты
+     * и группы в порядке их первого появления.
      *
      * @param {AggregatesData} newData - Только что загруженные данные.
      */
     const updateAllStageGroups = useCallback((newData) => {
         setAllStageGroups(prevAllStageGroups => {
-            let changed = false;
+            let changedGroups = false;
             const newStageGroups = { ...prevAllStageGroups };
+            const newGroupOrder = [...groupOrder]; // Создаем копию текущего порядка групп
 
             for (const groupName in newData) {
+                // Если новая группа, добавляем ее в конец groupOrder
+                if (!newGroupOrder.includes(groupName)) {
+                    newGroupOrder.push(groupName);
+                    changedGroups = true;
+                }
+
                 if (Array.isArray(newData[groupName]) && newData[groupName].length > 0) {
                     const currentKeys = new Set(newStageGroups[groupName] || []);
-                    const newKeys = newData[groupName].map(item => Object.keys(item)[0]);
+                    let changedKeysInGroup = false;
 
-                    newKeys.forEach(key => {
+                    newData[groupName].forEach(item => {
+                        const key = Object.keys(item)[0];
                         if (!currentKeys.has(key)) {
                             currentKeys.add(key);
-                            changed = true;
+                            changedKeysInGroup = true;
                         }
                     });
 
-                    // Сортировка ключей для стабильного порядка столбцов
-                    const sortedKeys = Array.from(currentKeys).sort();
-                    if (JSON.stringify(newStageGroups[groupName]) !== JSON.stringify(sortedKeys)) {
-                        newStageGroups[groupName] = sortedKeys;
-                        changed = true;
+                    // Если были изменения в ключах группы, обновляем ее
+                    if (changedKeysInGroup) {
+                        newStageGroups[groupName] = Array.from(currentKeys);
+                        changedGroups = true;
                     }
                 }
             }
 
-            return changed ? newStageGroups : prevAllStageGroups;
+            // Обновляем groupOrder, если были добавлены новые группы
+            if (changedGroups) {
+                setGroupOrder(newGroupOrder);
+            }
+
+            return changedGroups ? newStageGroups : prevAllStageGroups;
         });
-    }, []);
+    }, [groupOrder]);
 
     /**
      * Проверяет, является ли строка с заданным индексом видимой в области прокрутки,
@@ -286,7 +281,7 @@ export const Table = () => {
         if (!sectionRef.current) return;
 
         const datesToLoad = new Set();
-        const currentlyLoading = new Set(loadingDates); // Использование set для loadingDates
+        const currentlyLoading = new Set(loadingDates);
 
         // Определяем даты, которые должны быть загружены.
         dates.forEach((date, index) => {
@@ -309,7 +304,7 @@ export const Table = () => {
                 try {
                     const data = await fetchDateData(date);
                     dataCache.current[date] = data;
-                    updateAllStageGroups(data);
+                    updateAllStageGroups(data); // Обновляем заголовки при получении новых данных
                     return { date, data };
                 } catch (error) {
                     console.error(`Ошибка загрузки данных для ${date}:`, error);
@@ -341,7 +336,7 @@ export const Table = () => {
             datesToLoad.forEach(date => newLoading.delete(date));
             return newLoading;
         });
-    }, [dates, visibleData, loadingDates, isRowVisible, updateAllStageGroups]); // Добавил loadingDates в зависимости
+    }, [dates, visibleData, loadingDates, isRowVisible, updateAllStageGroups]);
 
     /**
      * Обработчик события прокрутки таблицы.
@@ -418,9 +413,8 @@ export const Table = () => {
     }, [loadVisibleAndBufferData, dates]);
 
     /**
-     * Эффект для инициализации `allStageGroups` на основе первых доступных данных.
+     * Эффект для инициализации `allStageGroups` и `groupOrder` на основе первых доступных данных.
      * Это необходимо для рендеринга заголовков столбцов.
-     * Теперь он вызывает `updateAllStageGroups` для обработки первого набора данных.
      */
     useEffect(() => {
         if (Object.keys(allStageGroups).length === 0 && dates.length > 0 && !loadingDates.has(dates[0]) && !visibleData[dates[0]] && !dataCache.current[dates[0]]) {
@@ -435,7 +429,7 @@ export const Table = () => {
 
                     if (result.data) {
                         dataCache.current[result.date] = result.data;
-                        updateAllStageGroups(result.data); // Используем новую функцию
+                        updateAllStageGroups(result.data);
                         setVisibleData(prev => ({ ...prev, [result.date]: result.data }));
                     }
                 } catch (error) {
@@ -453,50 +447,37 @@ export const Table = () => {
         }
     }, [dates, loadingDates, visibleData, allStageGroups, updateAllStageGroups]);
 
-    // Определяем порядок групп, используя preferredGroupOrder
-    const sortedGroupNames = Object.keys(allStageGroups).sort((a, b) => {
-        const indexA = preferredGroupOrder.indexOf(a);
-        const indexB = preferredGroupOrder.indexOf(b);
-        // Если обе группы есть в preferredGroupOrder, сортируем по их индексу
-        if (indexA !== -1 && indexB !== -1) {
-            return indexA - indexB;
-        }
-        // Если только одна группа есть в preferredGroupOrder, она идет первой
-        if (indexA !== -1) {
-            return -1;
-        }
-        if (indexB !== -1) {
-            return 1;
-        }
-        // Если ни одной нет, или обе отсутствуют, используем обычную лексикографическую сортировку
-        return a.localeCompare(b);
-    });
 
     return (
         <section
             ref={sectionRef}
             style={{
-                width: '50%',
-                height: '600px',
+                maxWidth: maxWidth,
+                width: 'fit-content',
+                height: '100%',
+                maxHeight: maxHeight,
                 overflow: 'auto',
                 border: '1px solid #ccc',
                 position: 'relative',
+                fontFamily: "serif",
             }}
             onScroll={handleScroll}
         >
             <table style={{ width: '100%', borderCollapse: 'collapse', border: 'none' }}>
-                <thead style={{ position: 'sticky', top: 0, background: 'lightblue', zIndex: 10 }}>
+                <thead style={{ position: 'sticky', top: 0, background: colorTheme("BGHeader"), zIndex: 10 }}>
                 <tr>
-                    <th rowSpan="2" style={{ borderRight: '2px solid #ccc', padding: '0px' }}>Дата</th>
+                    <th rowSpan="2" style={{
+                        padding: '2px'
+                    }}>Дата</th>
                     {/* Рендеринг заголовков групп (например, "1 Ступень", "2 Ступень") */}
-                    {sortedGroupNames.map((groupName, index) => (
+                    {groupOrder.map((groupName, index) => (
                         <th
                             key={groupName}
-                            colSpan={allStageGroups[groupName].length}
+                            colSpan={allStageGroups[groupName] ? allStageGroups[groupName].length : 0}
                             style={{
-                                borderLeft: index > 0 ? '2px solid #ccc' : 'none',
-                                borderRight: '2px solid #ccc',
-                                padding: '0px',
+                                textWrap: 'nowrap',
+                                borderLeft: index > 0 ? '2px solid #fff' : 'none',
+                                padding: '2px',
                             }}
                         >
                             {groupName}
@@ -505,13 +486,13 @@ export const Table = () => {
                 </tr>
                 <tr>
                     {/* Рендеринг подзаголовков агрегатов внутри каждой группы */}
-                    {sortedGroupNames.map((groupName, groupIndex) => (
-                        allStageGroups[groupName].map((key, keyIndex) => (
+                    {groupOrder.map((groupName, groupIndex) => (
+                        (allStageGroups[groupName] || []).map((key, keyIndex) => (
                             <th
                                 key={`${groupName}-${key}`}
                                 style={{
-                                    borderLeft: keyIndex === 0 && groupIndex > 0 ? '2px solid #ccc' : 'none',
-                                    padding: '2px'
+                                    borderLeft: keyIndex === 0 && groupIndex > 0 ? '2px solid #fff' : 'none',
+                                    padding: '5px'
                                 }}
                             >
                                 {key}
@@ -533,26 +514,25 @@ export const Table = () => {
                             key={dateString}
                             style={{
                                 height: `${rowHeight}px`,
-                                backgroundColor: isPastDate ? '#bbdefb' : 'inherit' // Фон для прошедших дат
+                                backgroundColor: colorTheme("DATE", isPastDate)
                             }}
                         >
                             <th style={{ borderRight: 'none', padding: '8px', color: isPastDate ? '#424242' : 'inherit' }}>
                                 {dateString}
                             </th>
                             {/* Рендеринг ячеек данных для каждой стадии агрегата */}
-                            {sortedGroupNames.map((groupName, groupIndex) => (
-                                allStageGroups[groupName].map((key, keyIndex) => {
+                            {groupOrder.map((groupName, groupIndex) => (
+                                (allStageGroups[groupName] || []).map((key, keyIndex) => {
                                     const stageGroupData = data ? data[groupName] : [];
                                     const stageValue = getStageValue(stageGroupData, key);
                                     return (
                                         <td
                                             key={`${dateString}-${groupName}-${key}`}
                                             style={{
-                                                borderLeft: keyIndex === 0 && groupIndex > 0 ? '2px solid #ccc' : 'none',
-                                                borderRight: keyIndex === allStageGroups[groupName].length - 1 ? '4px solid #fff' : 'none', // Правая граница для последней ячейки группы
+                                                borderLeft: keyIndex === 0 && groupIndex > 0 ? '2px solid #fff' : 'none',
                                                 padding: '0px',
                                                 textAlign: 'center',
-                                                backgroundColor: isLoading ? 'transparent' : getStageColor(stageValue, isPastDate) // Цвет в зависимости от стадии и даты
+                                                backgroundColor: isLoading ? 'transparent' : colorTheme(stageValue, isPastDate) // Цвет в зависимости от стадии и даты
                                             }}
                                         >
                                             {/* Отображение спиннера загрузки или значения стадии */}
@@ -562,7 +542,7 @@ export const Table = () => {
                                                         width: '20px',
                                                         height: '20px',
                                                         borderRadius: '50%',
-                                                        border: '2px solid #ccc',
+                                                        border: '2px solid #fff',
                                                         borderTop: '2px solid #007bff',
                                                         animation: 'spin 1s linear infinite',
                                                         margin: 'auto',
