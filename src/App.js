@@ -1,4 +1,6 @@
 import {Table} from "./component/table";
+import {TableTest} from "./component/test";
+import {TableMergeTest} from "./component/testmerge";
 
 /**
  * Возвращает цвет фона для ячейки таблицы в зависимости от значения стадии.
@@ -23,8 +25,8 @@ const getStageColor = (stageValue, isPastDate) => {
 
 function App() {
     return (
-        <main>
-            <Table maxWidth={'1200px'} maxHeight={'400px'} colorTheme={getStageColor} />
+        <main style={{width: "100%"}}>
+            <Table maxWidth={'1200px'} maxHeight={'600px'} colorTheme={getStageColor} debug={false} />
         </main>
     )
 }
