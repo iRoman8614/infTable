@@ -7,6 +7,8 @@ const WebTable = r2wc(Table, React, ReactDOM, {
     props: {
         maxWidth: "string",
         maxHeight: "string",
+        scrollBatchSize: "number",
+        debug: "boolean",
     }
 });
 
