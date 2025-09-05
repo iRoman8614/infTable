@@ -11,69 +11,24 @@ const fetchBatchData = async (startDate, days) => {
     const randomStageValue = () => stagesValues[Math.floor(Math.random() * stagesValues.length)];
 
     const generateDayData = (dateStr) => {
-        const configChoice = Math.random();
-
-        let stage1, stage2, stage3;
-
-        // if (configChoice < 0.01) {
-        //     stage1 = [
-        //         {"20ГПА-1-1": randomStageValue()},
-        //         {"20ГПА-1-2": randomStageValue()},
-        //         {"20ГПА-1-3": randomStageValue()},
-        //         {"20ГПА-1-4": randomStageValue()},
-        //     ];
-        //     stage2 = [
-        //         {"20ГПА-2-1": randomStageValue()},
-        //         {"20ГПА-2-2": randomStageValue()},
-        //         {"20ГПА-2-3": randomStageValue()},
-        //         {"20ГПА-2-4": randomStageValue()},
-        //     ];
-        //     stage3 = [
-        //         {"20ГПА-3-1": randomStageValue()},
-        //         {"20ГПА-3-2": randomStageValue()},
-        //         {"20ГПА-3-3": randomStageValue()},
-        //         {"20ГПА-3-4": randomStageValue()},
-        //     ];
-        // } else if (configChoice < 0.66) {
-        //     stage1 = [
-        //         {"20ГПА-1-1": randomStageValue()},
-        //         {"20ГПА-1-3": randomStageValue()},
-        //         {"20ГПА-1-2": randomStageValue()},
-        //         {"20ГПА-1-4": randomStageValue()},
-        //     ];
-        //     stage2 = [
-        //         {"20ГПА-2-1": randomStageValue()},
-        //         {"20ГПА-2-3": randomStageValue()},
-        //         {"20ГПА-2-2": randomStageValue()},
-        //         {"20ГПА-2-4": randomStageValue()},
-        //     ];
-        //     stage3 = [
-        //         {"20ГПА-3-1": randomStageValue()},
-        //         {"20ГПА-3-3": randomStageValue()},
-        //         {"20ГПА-3-2": randomStageValue()},
-        //         {"20ГПА-3-4": randomStageValue()},
-        //     ];
-        // } else
-        {
-            stage1 = [
-                {"20ГПА-1-2": randomStageValue()},
-                {"20ГПА-1-3": randomStageValue()},
-                {"20ГПА-1-1": randomStageValue()},
-                {"20ГПА-1-4": randomStageValue()},
-            ];
-            stage2 = [
-                {"20ГПА-2-2": randomStageValue()},
-                {"20ГПА-2-3": randomStageValue()},
-                {"20ГПА-2-1": randomStageValue()},
-                {"20ГПА-2-4": randomStageValue()},
-            ];
-            stage3 = [
-                {"20ГПА-3-2": randomStageValue()},
-                {"20ГПА-3-3": randomStageValue()},
-                {"20ГПА-3-1": randomStageValue()},
-                {"20ГПА-3-4": randomStageValue()},
-            ];
-        }
+        let stage1 = [
+            {"20ГПА-1-2": randomStageValue()},
+            {"20ГПА-1-3": randomStageValue()},
+            {"20ГПА-1-1": randomStageValue()},
+            {"20ГПА-1-4": randomStageValue()},
+        ];
+        let stage2 = [
+            {"20ГПА-2-2": randomStageValue()},
+            {"20ГПА-2-3": randomStageValue()},
+            {"20ГПА-2-1": randomStageValue()},
+            {"20ГПА-2-4": randomStageValue()},
+        ];
+        let stage3 = [
+            {"20ГПА-3-2": randomStageValue()},
+            {"20ГПА-3-3": randomStageValue()},
+            {"20ГПА-3-1": randomStageValue()},
+            {"20ГПА-3-4": randomStageValue()},
+        ];
 
         const result = {
             date: dateStr,
@@ -112,11 +67,10 @@ function processDataForTable(data) {
         return { processedData: [], allElements: [], stageElements: {}, agrElements: [] };
     }
 
-    const allElements = new Set(); // Для всех элементов, включая agr и stage
-    const stageElements = {}; // Для элементов по стадиям
-    const agrKeys = new Set(); // Для ключей agr
+    const allElements = new Set();
+    const stageElements = {};
+    const agrKeys = new Set();
 
-    // Собираем все уникальные элементы и ключи agr
     data.forEach(row => {
         for (const key in row) {
             if (key.startsWith('stage') && Array.isArray(row[key])) {
@@ -175,7 +129,6 @@ function processDataForTable(data) {
 
     // вычисление rowspan для каждого элемента
     sortedAllElements.forEach(elementName => {
-        // Пропускаем 'agr' элементы для rowspan логики, так как они не объединяются
         if (elementName.startsWith('agr')) {
             processedData.forEach(row => {
                 if (row.elements[elementName]) {
@@ -193,19 +146,16 @@ function processDataForTable(data) {
             }
         });
 
-        // вычисляем объединения для stage
         let i = 0;
         while (i < processedData.length) {
             const currentRow = processedData[i];
             const currentStatus = currentRow.elements[elementName]?.status;
 
-            // Пропускаем статусы, которые не должны объединяться
             if (currentStatus === 'М' || currentStatus === 'Р' || currentStatus === '-' || currentStatus === undefined) {
                 i++;
                 continue;
             }
 
-            // Ищем все подряд идущие строки с тем же статусом
             let spanCount = 1;
             let j = i + 1;
 
@@ -221,7 +171,7 @@ function processDataForTable(data) {
                     break;
                 }
             }
-            // Устанавливаем rowspan для первой строки группы
+
             if (spanCount > 1) {
                 currentRow.elements[elementName].rowspan = spanCount;
             }
@@ -232,9 +182,6 @@ function processDataForTable(data) {
     return { processedData, sortedAllElements, stageElements, agrElements: sortedAgrElements };
 }
 
-/**
- * Форматирует объект Date в строку формата 'ДД.ММ.ГГГГ'.
- */
 const formatDate = (date) => {
     return date.toLocaleDateString('ru-RU', {
         day: '2-digit',
@@ -243,17 +190,11 @@ const formatDate = (date) => {
     });
 };
 
-/**
- * Парсит строку даты формата 'ДД.ММ.ГГГГ' в объект Date.
- */
 const parseDateString = (dateString) => {
     const [day, month, year] = dateString.split('.').map(Number);
     return new Date(Date.UTC(year, month - 1, day));
 };
 
-/**
- * Улучшенная throttle функция с возможностью форсированного выполнения
- */
 const smartThrottle = (func, limit) => {
     let lastFunc;
     let lastRan;
@@ -277,7 +218,6 @@ const smartThrottle = (func, limit) => {
         }
     };
 
-    // Метод для немедленного выполнения с последними аргументами
     throttled.flush = function() {
         clearTimeout(lastFunc);
         if (lastArgs) {
@@ -293,39 +233,39 @@ const smartThrottle = (func, limit) => {
  * Виртуализированная таблица с rowspan и бесконечным скроллом
  */
 export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scrollBatchSize = 7, debug = true }) => {
-    // Основные состояния
     const [dates, setDates] = useState([]);
     const [dataCache, setDataCache] = useState({});
     const [processedCache, setProcessedCache] = useState({});
     const [loadingBatches, setLoadingBatches] = useState(new Set());
     const [isInitialized, setIsInitialized] = useState(false);
 
-    // динамическая структура заголовков
     const [headerStructure, setHeaderStructure] = useState({});
     const [groupOrder, setGroupOrder] = useState([]);
 
-    // Виртуализация
     const [scrollTop, setScrollTop] = useState(0);
     const [containerHeight, setContainerHeight] = useState(0);
 
-    // Референсы
     const containerRef = useRef(null);
     const fetchingPromises = useRef({});
     const scrollVelocity = useRef(0);
     const lastScrollTime = useRef(0);
     const lastScrollTop = useRef(0);
     const isScrollCompensating = useRef(false);
+    const pendingRecalculation = useRef(null);
+
+    const stableHeaderStructure = useRef({});
+    const stableGroupOrder = useRef([]);
+    const headerUpdatePending = useRef(false);
+
     const rowHeight = 40;
     const bufferSize = 20;
 
-    // Текущая дата
     const today = useMemo(() => {
         const date = new Date();
         date.setUTCHours(0, 0, 0, 0);
         return date;
     }, []);
 
-    // Цветовая тема по умолчанию
     const defaultColorTheme = useCallback((value, isPast) => {
         if (value === "BGHeader") return '#e3f2fd';
         if (value === "DATE") return isPast ? '#f5f5f5' : '#ffffff';
@@ -343,9 +283,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
 
     const activeColorTheme = colorTheme || defaultColorTheme;
 
-    /**
-     * Расчет видимого диапазона с буфером
-     */
     const visibleRange = useMemo(() => {
         if (!containerHeight || dates.length === 0) {
             return { start: 0, end: Math.max(dates.length, scrollBatchSize * 2) };
@@ -360,9 +297,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         return { start, end };
     }, [scrollTop, containerHeight, dates.length, rowHeight, bufferSize, scrollBatchSize]);
 
-    /**
-     * Генерация начального диапазона дат
-     */
     const generateInitialDates = useCallback(() => {
         const initialDates = [];
         const daysAround = Math.floor(scrollBatchSize * 4);
@@ -376,14 +310,15 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         return initialDates;
     }, [today, scrollBatchSize]);
 
-    /**
-     * Обновление структуры заголовков (исправлено для синхронизации и динамического определения)
-     */
     const updateHeaderStructure = useCallback((newDataEntries) => {
+        if (isScrollCompensating.current || scrollVelocity.current > 0.5) {
+            headerUpdatePending.current = true;
+            return;
+        }
+
         const newStructure = {};
         const newGroupOrder = [];
 
-        // Собираем все данные, включая существующие из кэша
         const allDataEntries = [...Object.values(dataCache), ...newDataEntries];
 
         const uniqueAgrKeys = new Set();
@@ -407,38 +342,46 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
             }
         });
 
-        // Формируем группы для header
         const agrElements = Array.from(uniqueAgrKeys).sort();
         if (agrElements.length > 0) {
             newStructure["Работающие агрегаты"] = agrElements;
         }
 
-        // Собираем и сортируем ключи стадий (stage1, stage2, stage3, ...)
         const sortedStageKeys = Object.keys(uniqueStageGroups).sort((a, b) => {
-            // Сортировка по номеру стадии
             const numA = parseInt(a.replace('stage', ''), 10);
             const numB = parseInt(b.replace('stage', ''), 10);
             return numA - numB;
         });
 
         sortedStageKeys.forEach(stageKey => {
-            const groupName = `${stageKey.replace('stage', '')} Ступень`; // "1 Ступень", "2 Ступень"
+            const groupName = `${stageKey.replace('stage', '')} Ступень`;
             newStructure[groupName] = Array.from(uniqueStageGroups[stageKey]).sort();
         });
 
-        // Формируем порядок групп (сначала агрегаты, потом стадии по порядку)
         if (newStructure["Работающие агрегаты"]) {
             newGroupOrder.push("Работающие агрегаты");
         }
         newGroupOrder.push(...sortedStageKeys.map(stageKey => `${stageKey.replace('stage', '')} Ступень`));
 
-        setHeaderStructure(newStructure);
-        setGroupOrder(newGroupOrder);
+        const structureChanged = JSON.stringify(stableHeaderStructure.current) !== JSON.stringify(newStructure);
+
+        if (structureChanged) {
+            stableHeaderStructure.current = newStructure;
+            stableGroupOrder.current = newGroupOrder;
+            setHeaderStructure(newStructure);
+            setGroupOrder(newGroupOrder);
+        }
+
+        headerUpdatePending.current = false;
     }, [dataCache]);
 
-    /**
-     * Получение значения ячейки
-     */
+    // Отложенное обновление структуры заголовков после окончания скролла
+    const processPendingHeaderUpdate = useCallback(() => {
+        if (headerUpdatePending.current && scrollVelocity.current <= 0.1 && !isScrollCompensating.current) {
+            updateHeaderStructure([]);
+        }
+    }, [updateHeaderStructure]);
+
     const getCellValue = useCallback((processedRow, groupName, key) => {
         if (groupName === "Работающие агрегаты") {
             const originalData = dataCache[processedRow.date];
@@ -450,9 +393,23 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
             : '—';
     }, [dataCache]);
 
-    /**
-     * Загрузка батча данных
-     */
+    // ИСПРАВЛЕНИЕ: Стабильные значения для рендеринга таблицы
+    const renderHeaderStructure = useMemo(() => {
+        // Используем стабильную структуру во время скролла
+        if (scrollVelocity.current > 0.5 && Object.keys(stableHeaderStructure.current).length > 0) {
+            return stableHeaderStructure.current;
+        }
+        return headerStructure;
+    }, [headerStructure]);
+
+    const renderGroupOrder = useMemo(() => {
+        // Используем стабильный порядок во время скролла
+        if (scrollVelocity.current > 0.5 && stableGroupOrder.current.length > 0) {
+            return stableGroupOrder.current;
+        }
+        return groupOrder;
+    }, [groupOrder]);
+
     const loadBatch = useCallback(async (startDate, batchSize) => {
         const batchKey = `${startDate}+${batchSize}`;
 
@@ -464,7 +421,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
 
         const promise = fetchBatchData(startDate, batchSize)
             .then(batchData => {
-                // Обновляем кэш сырых данных
                 setDataCache(prev => {
                     const updated = { ...prev };
                     batchData.data.forEach(dayData => {
@@ -473,24 +429,7 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                     return updated;
                 });
 
-                // Обновляем структуру заголовков сразу после получения сырых данных
                 updateHeaderStructure(batchData.data);
-
-                // Собираем все доступные сырые данные для пересчета rowspan
-                const allRawData = Object.values({ ...dataCache, ...Object.fromEntries(batchData.data.map(d => [d.date, d])) });
-
-                // Обрабатываем все данные, которые есть в кэше, чтобы rowspan был корректным
-                const processed = processDataForTable(allRawData);
-
-                // Обновляем кэш обработанных данных
-                setProcessedCache(prev => {
-                    const updated = { ...prev };
-                    processed.processedData.forEach(processedRow => {
-                        updated[processedRow.date] = processedRow;
-                    });
-                    return updated;
-                });
-
                 return batchData;
             })
             .finally(() => {
@@ -504,36 +443,34 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
 
         fetchingPromises.current[batchKey] = promise;
         return promise;
-    }, [loadingBatches, updateHeaderStructure, dataCache]);
+    }, [loadingBatches, updateHeaderStructure]);
 
-    /**
-     * Перерасчет rowspan для диапазона дат (Fixed: removed unused variables)
-     */
-    const recalculateRowspan = useCallback((startDate, endDate) => {
-        // Собираем данные из кэша, чтобы processDataForTable имел полный контекст
-        // для корректного расчета rowspan по всему видится диапазону, а не только по новым данным.
-        const allAvailableDates = Object.keys(dataCache).sort((a, b) => parseDateString(a) - parseDateString(b));
-
-        const dataForProcessing = [];
-        for (const dateStr of allAvailableDates) {
-            dataForProcessing.push(dataCache[dateStr]);
+    // Отложенный пересчет rowspan с учетом скорости скролла
+    const scheduleRowspanRecalculation = useCallback(() => {
+        if (pendingRecalculation.current) {
+            clearTimeout(pendingRecalculation.current);
         }
 
-        if (dataForProcessing.length > 0) {
-            const processed = processDataForTable(dataForProcessing); // Передаем все данные
-            setProcessedCache(prev => {
-                const updated = { ...prev };
-                processed.processedData.forEach(processedRow => {
-                    updated[processedRow.date] = processedRow;
-                });
-                return updated;
-            });
-        }
+        pendingRecalculation.current = setTimeout(() => {
+            if (!isScrollCompensating.current && scrollVelocity.current <= 0.3) {
+                const allAvailableDates = Object.keys(dataCache).sort((a, b) => parseDateString(a) - parseDateString(b));
+                const dataForProcessing = allAvailableDates.map(dateStr => dataCache[dateStr]).filter(Boolean);
+
+                if (dataForProcessing.length > 0) {
+                    const processed = processDataForTable(dataForProcessing);
+                    setProcessedCache(prev => {
+                        const updated = { ...prev };
+                        processed.processedData.forEach(processedRow => {
+                            updated[processedRow.date] = processedRow;
+                        });
+                        return updated;
+                    });
+                }
+            }
+            pendingRecalculation.current = null;
+        }, scrollVelocity.current > 1 ? 200 : 100);
     }, [dataCache]);
 
-    /**
-     * Загрузка данных для видимого диапазона
-     */
     const loadVisibleData = useCallback(async () => {
         const { start, end } = visibleRange;
         const visibleDates = dates.slice(start, end);
@@ -567,18 +504,10 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         );
 
         await Promise.allSettled(loadPromises);
+        scheduleRowspanRecalculation();
+    }, [visibleRange, dates, dataCache, loadBatch, scrollBatchSize, scheduleRowspanRecalculation]);
 
-        // Откладываем пересчет rowspan до окончания компенсации скролла
-        if (!isScrollCompensating.current && visibleDates.length > 0) {
-            const firstDate = visibleDates[0];
-            const lastDate = visibleDates[visibleDates.length - 1];
-            recalculateRowspan(firstDate, lastDate);
-        }
-    }, [visibleRange, dates, dataCache, loadBatch, scrollBatchSize, recalculateRowspan]);
-
-    /**
-     * Улучшенное расширение диапазона дат с предсказанием
-     */
+    // ИСПРАВЛЕНИЕ: Полностью переписанная функция extendDates с правильной компенсацией скролла
     const extendDates = useCallback(async (direction, isPreemptive = false) => {
         const loadPromises = [];
 
@@ -588,8 +517,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
 
             const lastDateObj = parseDateString(lastDate);
             const newDates = [];
-
-            // Загружаем больше при высокой скорости скролла или предварительно
             const extendSize = isPreemptive ? scrollBatchSize * 2 : scrollBatchSize;
 
             for (let i = 1; i <= extendSize; i++) {
@@ -600,7 +527,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
 
             setDates(prev => [...prev, ...newDates]);
 
-            // Разбиваем на батчи и загружаем параллельно
             for (let i = 0; i < newDates.length; i += scrollBatchSize) {
                 const batchStart = newDates[i];
                 const batchSize = Math.min(scrollBatchSize, newDates.length - i);
@@ -608,13 +534,7 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
             }
 
             await Promise.allSettled(loadPromises);
-
-            // Пересчитываем rowspan только если не компенсируем скролл
-            if (!isScrollCompensating.current) {
-                const bufferStart = formatDate(new Date(lastDateObj.getTime() - scrollBatchSize * 24 * 60 * 60 * 1000));
-                const bufferEnd = newDates[newDates.length - 1];
-                recalculateRowspan(bufferStart, bufferEnd);
-            }
+            scheduleRowspanRecalculation();
 
         } else if (direction === 'backward') {
             const firstDate = dates[0];
@@ -622,7 +542,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
 
             const firstDateObj = parseDateString(firstDate);
             const newDates = [];
-
             const extendSize = isPreemptive ? scrollBatchSize * 2 : scrollBatchSize;
 
             for (let i = extendSize; i >= 1; i--) {
@@ -631,43 +550,38 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                 newDates.push(formatDate(date));
             }
 
-            // ИСПРАВЛЕНИЕ: Более стабильная компенсация скролла
             if (containerRef.current) {
                 isScrollCompensating.current = true;
 
-                // Сохраняем текущее положение относительно первой видимой даты
                 const currentScrollTop = containerRef.current.scrollTop;
                 const currentFirstVisibleIndex = Math.floor(currentScrollTop / rowHeight);
-                const currentFirstVisibleDate = dates[currentFirstVisibleIndex];
+                const scrollOffset = currentScrollTop % rowHeight;
 
-                // Добавляем новые даты
-                setDates(prev => [...newDates, ...prev]);
+                // ИСПРАВЛЕНИЕ: Используем callback setState для получения актуального состояния
+                setDates(prevDates => {
+                    const updatedDates = [...newDates, ...prevDates];
 
-                // Ждем следующий рендер для компенсации
-                requestAnimationFrame(() => {
-                    if (containerRef.current) {
-                        // Находим новый индекс первой видимой даты
-                        const newDates_plus_oldDates = [...newDates, ...dates];
-                        const newFirstVisibleIndex = newDates_plus_oldDates.findIndex(date => date === currentFirstVisibleDate);
+                    // Компенсация скролла в том же обновлении состояния
+                    requestAnimationFrame(() => {
+                        if (containerRef.current && isScrollCompensating.current) {
+                            // Рассчитываем новую позицию на основе актуального состояния
+                            const compensatedScrollTop = (currentFirstVisibleIndex + newDates.length) * rowHeight + scrollOffset;
+                            containerRef.current.scrollTop = compensatedScrollTop;
+                            setScrollTop(compensatedScrollTop);
 
-                        if (newFirstVisibleIndex !== -1) {
-                            // Устанавливаем новую позицию скролла
-                            const newScrollTop = newFirstVisibleIndex * rowHeight + (currentScrollTop % rowHeight);
-                            containerRef.current.scrollTop = newScrollTop;
-                            setScrollTop(newScrollTop);
+                            // Сбрасываем флаг компенсации через небольшую задержку
+                            setTimeout(() => {
+                                isScrollCompensating.current = false;
+                            }, 50);
                         }
+                    });
 
-                        // Ждем стабилизации перед сбросом флага
-                        setTimeout(() => {
-                            isScrollCompensating.current = false;
-                        }, 50);
-                    }
+                    return updatedDates;
                 });
             } else {
                 setDates(prev => [...newDates, ...prev]);
             }
 
-            // Загружаем данные параллельно
             for (let i = 0; i < newDates.length; i += scrollBatchSize) {
                 const batchStart = newDates[i];
                 const batchSize = Math.min(scrollBatchSize, newDates.length - i);
@@ -676,22 +590,18 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
 
             await Promise.allSettled(loadPromises);
 
-            // Пересчитываем rowspan только после завершения компенсации
+            // Отложенный пересчет rowspan после завершения компенсации
             setTimeout(() => {
-                if (!isScrollCompensating.current) {
-                    const bufferStart = newDates[0];
-                    const bufferEnd = formatDate(new Date(firstDateObj.getTime() + scrollBatchSize * 24 * 60 * 60 * 1000));
-                    recalculateRowspan(bufferStart, bufferEnd);
-                }
-            }, 100);
+                scheduleRowspanRecalculation();
+            }, 150);
         }
-    }, [dates, scrollBatchSize, rowHeight, loadBatch, recalculateRowspan]);
+    }, [dates, scrollBatchSize, rowHeight, loadBatch, scheduleRowspanRecalculation]);
 
-    /**
-     * Улучшенный обработчик скролла с предсказанием
-     */
     const handleScrollImmediate = useCallback(async () => {
-        if (!containerRef.current || isScrollCompensating.current) return;
+        if (!containerRef.current) return;
+
+        // ИСПРАВЛЕНИЕ: Игнорируем события скролла во время компенсации
+        if (isScrollCompensating.current) return;
 
         const container = containerRef.current;
         const newScrollTop = container.scrollTop;
@@ -699,7 +609,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         const scrollHeight = container.scrollHeight;
         const currentTime = Date.now();
 
-        // Вычисляем скорость скролла
         const timeDelta = currentTime - lastScrollTime.current;
         const scrollDelta = newScrollTop - lastScrollTop.current;
 
@@ -713,7 +622,11 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         setScrollTop(newScrollTop);
         setContainerHeight(newContainerHeight);
 
-        // Адаптивный threshold на основе скорости скролла
+        // Обрабатываем отложенные обновления заголовков при замедлении скролла
+        if (scrollVelocity.current <= 0.5) {
+            processPendingHeaderUpdate();
+        }
+
         const baseThreshold = rowHeight * bufferSize;
         const velocityMultiplier = Math.min(3, 1 + scrollVelocity.current * 2);
         const dynamicThreshold = baseThreshold * velocityMultiplier;
@@ -721,11 +634,9 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         const topThreshold = dynamicThreshold;
         const bottomThreshold = scrollHeight - newContainerHeight - dynamicThreshold;
 
-        // Проверяем необходимость расширения
         const needsTopExtension = newScrollTop <= topThreshold && dates.length > 0;
         const needsBottomExtension = newScrollTop >= bottomThreshold && dates.length > 0;
 
-        // Предварительное расширение при высокой скорости
         const isHighVelocity = scrollVelocity.current > 1;
         const preemptiveTopThreshold = topThreshold * 2;
         const preemptiveBottomThreshold = scrollHeight - newContainerHeight - (dynamicThreshold * 2);
@@ -740,7 +651,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
             promises.push(extendDates('forward', isHighVelocity));
         }
 
-        // Предварительные загрузки при высокой скорости
         if (isHighVelocity) {
             if (scrollDelta < 0 && newScrollTop <= preemptiveTopThreshold) {
                 promises.push(extendDates('backward', true));
@@ -752,21 +662,18 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         if (promises.length > 0) {
             await Promise.allSettled(promises);
         }
-    }, [dates, extendDates, rowHeight, bufferSize]);
+    }, [dates, extendDates, rowHeight, bufferSize, processPendingHeaderUpdate]);
 
-    // Создаем throttled версию с flush
     const handleScrollThrottled = useMemo(
         () => smartThrottle(handleScrollImmediate, 8),
         [handleScrollImmediate]
     );
 
     const handleScroll = useCallback(() => {
-        // Игнорируем события скролла во время компенсации
         if (isScrollCompensating.current) return;
 
         handleScrollThrottled();
 
-        // При высокой скорости принудительно выполняем обработку
         if (scrollVelocity.current > 2) {
             setTimeout(() => {
                 handleScrollThrottled.flush();
@@ -774,9 +681,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         }
     }, [handleScrollThrottled]);
 
-    /**
-     * ИСПРАВЛЕНИЕ 1: Улучшенная инициализация с правильным размером батча
-     */
     useEffect(() => {
         if (!isInitialized && dates.length === 0) {
             const initialDates = generateInitialDates();
@@ -787,7 +691,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                 const todayIndex = initialDates.findIndex(date => date === todayFormatted);
 
                 if (todayIndex !== -1 && containerRef.current) {
-                    // Ждем, пока контейнер получит размеры
                     await new Promise(resolve => {
                         const checkDimensions = () => {
                             if (containerRef.current?.clientHeight > 0) {
@@ -800,17 +703,13 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                     });
 
                     const containerHeight = containerRef.current.clientHeight;
-
-                    // ИСПРАВЛЕНИЕ 1: Рассчитываем нужное количество строк на основе высоты контейнера
                     const visibleRows = Math.ceil(containerHeight / rowHeight);
-                    const totalRowsNeeded = visibleRows + (bufferSize * 2); // Видимые + буферы с обеих сторон
+                    const totalRowsNeeded = visibleRows + (bufferSize * 2);
                     const initialBatchSize = Math.max(scrollBatchSize * 2, totalRowsNeeded);
 
-                    // Загружаем достаточное количество данных вокруг сегодняшней даты
                     const startIndex = Math.max(0, todayIndex - Math.floor(initialBatchSize / 2));
                     const endIndex = Math.min(initialDates.length, startIndex + initialBatchSize);
 
-                    // Загружаем данные батчами для обеспечения плавности
                     const batchesToLoad = [];
                     for (let i = startIndex; i < endIndex; i += scrollBatchSize) {
                         const batchStart = initialDates[i];
@@ -818,14 +717,15 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                         batchesToLoad.push({ startDate: batchStart, size: batchSize });
                     }
 
-                    // ИСПРАВЛЕНИЕ 2: Предзагружаем данные параллельно для плавного первого скролла
                     const loadPromises = batchesToLoad.map(batch =>
                         loadBatch(batch.startDate, batch.size)
                     );
 
                     await Promise.allSettled(loadPromises);
 
-                    // После загрузки позиционируем на сегодняшний день
+                    // Пересчитываем rowspan для всех загруженных данных
+                    scheduleRowspanRecalculation();
+
                     setTimeout(() => {
                         if (containerRef.current) {
                             const targetScroll = todayIndex * rowHeight - (containerHeight / 2) + (rowHeight / 2);
@@ -835,11 +735,9 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                             setScrollTop(containerRef.current.scrollTop);
                             setIsInitialized(true);
 
-                            // ИСПРАВЛЕНИЕ 2: Предзагружаем дополнительные данные для плавного скролла
                             setTimeout(() => {
                                 const preloadPromises = [];
 
-                                // Предзагружаем данные выше и ниже для плавного скролла
                                 if (startIndex > bufferSize) {
                                     const preloadStartUp = Math.max(0, startIndex - bufferSize);
                                     preloadPromises.push(loadBatch(initialDates[preloadStartUp], bufferSize));
@@ -850,7 +748,9 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                                 }
 
                                 if (preloadPromises.length > 0) {
-                                    Promise.allSettled(preloadPromises);
+                                    Promise.allSettled(preloadPromises).then(() => {
+                                        scheduleRowspanRecalculation();
+                                    });
                                 }
                             }, 200);
                         }
@@ -860,7 +760,7 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
 
             initializeTable();
         }
-    }, [isInitialized, dates.length, generateInitialDates, today, rowHeight, scrollBatchSize, loadBatch, bufferSize]);
+    }, [isInitialized, dates.length, generateInitialDates, today, rowHeight, scrollBatchSize, loadBatch, bufferSize, scheduleRowspanRecalculation]);
 
     useEffect(() => {
         if (isInitialized) {
@@ -868,7 +768,15 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         }
     }, [isInitialized, loadVisibleData]);
 
-    // Очистка кэша
+    // Очистка таймаутов при размонтировании
+    useEffect(() => {
+        return () => {
+            if (pendingRecalculation.current) {
+                clearTimeout(pendingRecalculation.current);
+            }
+        };
+    }, []);
+
     useEffect(() => {
         const cleanup = () => {
             const { start, end } = visibleRange;
@@ -946,10 +854,10 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                         }}>
                             Дата
                         </th>
-                        {groupOrder.map((groupName, index) => (
+                        {renderGroupOrder.map((groupName, index) => (
                             <th
                                 key={groupName}
-                                colSpan={headerStructure[groupName]?.length || 1}
+                                colSpan={renderHeaderStructure[groupName]?.length || 1}
                                 style={{
                                     textWrap: 'nowrap',
                                     borderLeft: index > 0 ? '2px solid #fff' : 'none',
@@ -964,8 +872,8 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                         ))}
                     </tr>
                     <tr>
-                        {groupOrder.map((groupName, groupIndex) => (
-                            (headerStructure[groupName] || []).map((key, keyIndex) => (
+                        {renderGroupOrder.map((groupName, groupIndex) => (
+                            (renderHeaderStructure[groupName] || []).map((key, keyIndex) => (
                                 <th
                                     key={`${groupName}-${key}`}
                                     style={{
@@ -1017,8 +925,8 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                                     {dateString}
                                 </td>
 
-                                {groupOrder.map((groupName, groupIndex) => (
-                                    (headerStructure[groupName] || []).map((key, keyIndex) => {
+                                {renderGroupOrder.map((groupName, groupIndex) => (
+                                    (renderHeaderStructure[groupName] || []).map((key, keyIndex) => {
                                         const cellValue = processedRow ? getCellValue(processedRow, groupName, key) : '—';
 
                                         let shouldDisplay = true;
