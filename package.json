@@ -8,17 +8,21 @@
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "babel-loader": "^10.0.0",
+    "css-loader": "^7.1.2",
+    "http-server": "^14.1.1",
     "lit": "^3.3.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-scripts": "5.0.1",
     "react-to-webcomponent": "^2.0.1",
+    "style-loader": "^4.0.0",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "eject": "react-scripts eject"
+    "build:webcomponent": "webpack --config webpack.config.js --mode=production",
+    "dev:webcomponent": "webpack --config webpack.config.js --mode=development --watch",
+    "serve": "http-server . -p 3000 -o"
   },
   "eslintConfig": {
     "extends": [
