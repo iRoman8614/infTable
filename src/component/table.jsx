@@ -9,38 +9,63 @@ const fetchBatchData = async (startDate, days) => {
 
     const stagesValues = ["М", "М", "М", "М", "М", "М", "О", "П", "ПР", "Р"];
     const randomStageValue = () => stagesValues[Math.floor(Math.random() * stagesValues.length)];
+    const componentKeys = ["ГТД", "ГПА", "ОГК", "ДУС", "Трансмиссия"];
+
+    const randomWorkHours = () => {
+        const hours = {};
+        const availableComponents = componentKeys.filter(() => Math.random() > 0.3);
+        if (availableComponents.length === 0) availableComponents.push(componentKeys[0]);
+
+        availableComponents.forEach(component => {
+            hours[component] = Math.floor(Math.random() * 1000) + 100;
+        });
+        return hours;
+    };
 
     const generateDayData = (dateStr) => {
-        let stage1 = [
-            {"20ГПА-1-2": randomStageValue()},
-            {"20ГПА-1-3": randomStageValue()},
-            {"20ГПА-1-1": randomStageValue()},
-            {"20ГПА-1-4": randomStageValue()},
-        ];
-        let stage2 = [
-            {"20ГПА-2-2": randomStageValue()},
-            {"20ГПА-2-3": randomStageValue()},
-            {"20ГПА-2-1": randomStageValue()},
-            {"20ГПА-2-4": randomStageValue()},
-        ];
-        let stage3 = [
-            {"20ГПА-3-2": randomStageValue()},
-            {"20ГПА-3-3": randomStageValue()},
-            {"20ГПА-3-1": randomStageValue()},
-            {"20ГПА-3-4": randomStageValue()},
+        const stages = [
+            {
+                name: "1 Ступень",
+                aggregates: [
+                    { name: "20ГПА-1-1", status: randomStageValue(), work_hours: randomWorkHours() },
+                    { name: "20ГПА-1-2", status: randomStageValue(), work_hours: randomWorkHours() },
+                    { name: "20ГПА-1-3", status: randomStageValue(), work_hours: randomWorkHours() },
+                    { name: "20ГПА-1-4", status: randomStageValue(), work_hours: randomWorkHours() }
+                ]
+            },
+            {
+                name: "2 Ступень",
+                aggregates: [
+                    { name: "20ГПА-2-1", status: randomStageValue(), work_hours: randomWorkHours() },
+                    { name: "20ГПА-2-2", status: randomStageValue(), work_hours: randomWorkHours() },
+                    { name: "20ГПА-2-3", status: randomStageValue(), work_hours: randomWorkHours() },
+                    { name: "20ГПА-2-4", status: randomStageValue(), work_hours: randomWorkHours() }
+                ]
+            },
+            {
+                name: "3 Ступень",
+                aggregates: [
+                    { name: "20ГПА-3-1", status: randomStageValue(), work_hours: randomWorkHours() },
+                    { name: "20ГПА-3-2", status: randomStageValue(), work_hours: randomWorkHours() },
+                    { name: "20ГПА-3-3", status: randomStageValue(), work_hours: randomWorkHours() },
+                    { name: "20ГПА-3-4", status: randomStageValue(), work_hours: randomWorkHours() }
+                ]
+            }
         ];
 
         const result = {
             date: dateStr,
-            agr1: Math.floor(Math.random() * 10),
-            agr2: Math.floor(Math.random() * 10),
-            stage1: stage1,
-            stage2: stage2,
-            stage3: stage3
+            stages: stages
         };
 
-        if (Math.random() > 0.7) {
-            result.agr3 = Math.floor(Math.random() * 10);
+        if (Math.random() > 0.3) {
+            result.working_aggregates = {
+                agr1: Math.floor(Math.random() * 10),
+                agr2: Math.floor(Math.random() * 10)
+            };
+            if (Math.random() > 0.7) {
+                result.working_aggregates.agr3 = Math.floor(Math.random() * 10);
+            }
         }
 
         return result;
@@ -72,22 +97,28 @@ function processDataForTable(data) {
     const agrKeys = new Set();
 
     data.forEach(row => {
-        for (const key in row) {
-            if (key.startsWith('stage') && Array.isArray(row[key])) {
-                const stageName = key;
+        if (row.stages && Array.isArray(row.stages)) {
+            row.stages.forEach(stage => {
+                const stageName = stage.name;
                 if (!stageElements[stageName]) {
                     stageElements[stageName] = new Set();
                 }
 
-                row[key].forEach(item => {
-                    const elementName = Object.keys(item)[0];
-                    allElements.add(elementName);
-                    stageElements[stageName].add(elementName);
-                });
-            } else if (key.startsWith('agr')) {
+                if (stage.aggregates && Array.isArray(stage.aggregates)) {
+                    stage.aggregates.forEach(aggregate => {
+                        const elementName = aggregate.name;
+                        allElements.add(elementName);
+                        stageElements[stageName].add(elementName);
+                    });
+                }
+            });
+        }
+
+        if (row.working_aggregates && typeof row.working_aggregates === 'object') {
+            Object.keys(row.working_aggregates).forEach(key => {
                 agrKeys.add(key);
                 allElements.add(key);
-            }
+            });
         }
     });
 
@@ -103,33 +134,41 @@ function processDataForTable(data) {
         sortedAllElements.forEach(elementName => {
             processed.elements[elementName] = {
                 status: '-',
+                work_hours: {},
                 rowspan: 1,
                 displayed: true
             };
         });
 
-        for (const key in row) {
-            if (key.startsWith('stage') && Array.isArray(row[key])) {
-                row[key].forEach(item => {
-                    const elementName = Object.keys(item)[0];
-                    const status = item[elementName];
-                    if (processed.elements[elementName]) {
-                        processed.elements[elementName].status = status;
-                    }
-                });
-            } else if (key.startsWith('agr')) {
-                if (processed.elements[key]) {
-                    processed.elements[key].status = row[key];
+        if (row.stages && Array.isArray(row.stages)) {
+            row.stages.forEach(stage => {
+                if (stage.aggregates && Array.isArray(stage.aggregates)) {
+                    stage.aggregates.forEach(aggregate => {
+                        const elementName = aggregate.name;
+                        if (processed.elements[elementName]) {
+                            processed.elements[elementName].status = aggregate.status;
+                            processed.elements[elementName].work_hours = aggregate.work_hours || {};
+                        }
+                    });
                 }
-            }
+            });
+        }
+
+        if (row.working_aggregates && typeof row.working_aggregates === 'object') {
+            Object.entries(row.working_aggregates).forEach(([key, value]) => {
+                if (processed.elements[key]) {
+                    processed.elements[key].status = value;
+                    processed.elements[key].work_hours = {};
+                }
+            });
         }
 
         return processed;
     });
 
-    // вычисление rowspan для каждого элемента
+    // Вычисление rowspan для каждого элемента
     sortedAllElements.forEach(elementName => {
-        if (elementName.startsWith('agr')) {
+        if (agrKeys.has(elementName)) {
             processedData.forEach(row => {
                 if (row.elements[elementName]) {
                     row.elements[elementName].rowspan = 1;
@@ -233,18 +272,33 @@ const smartThrottle = (func, limit) => {
  * Виртуализированная таблица с rowspan и бесконечным скроллом
  */
 export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scrollBatchSize = 7, debug = true }) => {
+    // Основные состояния
     const [dates, setDates] = useState([]);
     const [dataCache, setDataCache] = useState({});
     const [processedCache, setProcessedCache] = useState({});
     const [loadingBatches, setLoadingBatches] = useState(new Set());
     const [isInitialized, setIsInitialized] = useState(false);
 
+    // Состояния для фильтров и настроек
+    const [showWorkHours, setShowWorkHours] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);
+    const [groupVisibility, setGroupVisibility] = useState({});
+    const [elementVisibility, setElementVisibility] = useState({});
+    const [componentVisibility, setComponentVisibility] = useState({});
+
+    // Состояния для аккордеона
+    const [expandedGroups, setExpandedGroups] = useState(new Set());
+    const [expandedElements, setExpandedElements] = useState(new Set());
+
+    // Состояния для структуры заголовков
     const [headerStructure, setHeaderStructure] = useState({});
     const [groupOrder, setGroupOrder] = useState([]);
 
+    // Состояния для скролла
     const [scrollTop, setScrollTop] = useState(0);
     const [containerHeight, setContainerHeight] = useState(0);
 
+    // Refs
     const containerRef = useRef(null);
     const fetchingPromises = useRef({});
     const scrollVelocity = useRef(0);
@@ -252,11 +306,11 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
     const lastScrollTop = useRef(0);
     const isScrollCompensating = useRef(false);
     const pendingRecalculation = useRef(null);
-
     const stableHeaderStructure = useRef({});
     const stableGroupOrder = useRef([]);
     const headerUpdatePending = useRef(false);
 
+    // Константы
     const rowHeight = 40;
     const bufferSize = 20;
 
@@ -267,17 +321,16 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
     }, []);
 
     const defaultColorTheme = useCallback((value, isPast) => {
-        if (value === "BGHeader") return '#e3f2fd';
-        if (value === "DATE") return isPast ? '#f5f5f5' : '#ffffff';
-        if (isPast) return '#eeeeee';
-
         switch (value) {
-            case 'М': return '#c8e6c9';
-            case 'О': return '#ffcdd2';
-            case 'П': return '#fff3e0';
-            case 'ПР': return '#e1bee7';
-            case 'Р': return '#b3e5fc';
-            default: return '#ffffff';
+            case "М": return "#cdef8d";
+            case "О": return "#ffce42";
+            case "П": return "#86cb89";
+            case "ПР": return "#4a86e8";
+            case "Р": return "white";
+            case "BGHeader": return "#dee3f5";
+            case "DATE": return isPast ? "#acb5e3" : "white";
+            case 0: return isPast ? '#acb5e3' : 'white';
+            default: return isPast ? '#acb5e3' : 'white';
         }
     }, []);
 
@@ -318,50 +371,56 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
 
         const newStructure = {};
         const newGroupOrder = [];
-
         const allDataEntries = [...Object.values(dataCache), ...newDataEntries];
-
         const uniqueAgrKeys = new Set();
         const uniqueStageGroups = {};
+        const allComponentKeys = new Set();
 
         allDataEntries.forEach(dayData => {
-            for (const key in dayData) {
-                if (key.startsWith('agr')) {
+            if (dayData.working_aggregates && typeof dayData.working_aggregates === 'object') {
+                Object.keys(dayData.working_aggregates).forEach(key => {
                     uniqueAgrKeys.add(key);
-                } else if (key.startsWith('stage') && Array.isArray(dayData[key])) {
-                    const stageName = key;
+                });
+            }
+
+            if (dayData.stages && Array.isArray(dayData.stages)) {
+                dayData.stages.forEach(stage => {
+                    const stageName = stage.name;
                     if (!uniqueStageGroups[stageName]) {
                         uniqueStageGroups[stageName] = new Set();
                     }
-                    dayData[key].forEach(item => {
-                        Object.keys(item).forEach(itemKey => {
-                            uniqueStageGroups[stageName].add(itemKey);
+
+                    if (stage.aggregates && Array.isArray(stage.aggregates)) {
+                        stage.aggregates.forEach(aggregate => {
+                            uniqueStageGroups[stageName].add(aggregate.name);
+
+                            if (aggregate.work_hours && typeof aggregate.work_hours === 'object') {
+                                Object.keys(aggregate.work_hours).forEach(componentKey => {
+                                    allComponentKeys.add(componentKey);
+                                });
+                            }
                         });
-                    });
-                }
+                    }
+                });
             }
         });
 
         const agrElements = Array.from(uniqueAgrKeys).sort();
         if (agrElements.length > 0) {
             newStructure["Работающие агрегаты"] = agrElements;
+            newGroupOrder.push("Работающие агрегаты");
         }
 
-        const sortedStageKeys = Object.keys(uniqueStageGroups).sort((a, b) => {
-            const numA = parseInt(a.replace('stage', ''), 10);
-            const numB = parseInt(b.replace('stage', ''), 10);
+        const sortedStageNames = Object.keys(uniqueStageGroups).sort((a, b) => {
+            const numA = parseInt(a.match(/(\d+)/)?.[0] || '0');
+            const numB = parseInt(b.match(/(\d+)/)?.[0] || '0');
             return numA - numB;
         });
 
-        sortedStageKeys.forEach(stageKey => {
-            const groupName = `${stageKey.replace('stage', '')} Ступень`;
-            newStructure[groupName] = Array.from(uniqueStageGroups[stageKey]).sort();
+        sortedStageNames.forEach(stageName => {
+            newStructure[stageName] = Array.from(uniqueStageGroups[stageName]).sort();
+            newGroupOrder.push(stageName);
         });
-
-        if (newStructure["Работающие агрегаты"]) {
-            newGroupOrder.push("Работающие агрегаты");
-        }
-        newGroupOrder.push(...sortedStageKeys.map(stageKey => `${stageKey.replace('stage', '')} Ступень`));
 
         const structureChanged = JSON.stringify(stableHeaderStructure.current) !== JSON.stringify(newStructure);
 
@@ -370,32 +429,64 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
             stableGroupOrder.current = newGroupOrder;
             setHeaderStructure(newStructure);
             setGroupOrder(newGroupOrder);
+
+            setGroupVisibility(prev => {
+                const updated = { ...prev };
+                newGroupOrder.forEach(groupName => {
+                    if (updated[groupName] === undefined) {
+                        updated[groupName] = true;
+                    }
+                });
+                return updated;
+            });
+
+            setElementVisibility(prev => {
+                const updated = { ...prev };
+                Object.entries(newStructure).forEach(([groupName, elements]) => {
+                    elements.forEach(element => {
+                        if (updated[element] === undefined) {
+                            updated[element] = true;
+                        }
+                    });
+                });
+                return updated;
+            });
+
+            setComponentVisibility(prev => {
+                const updated = { ...prev };
+                Object.entries(newStructure).forEach(([groupName, elements]) => {
+                    if (groupName !== "Работающие агрегаты") {
+                        elements.forEach(element => {
+                            if (!updated[element]) {
+                                const componentObj = {};
+                                Array.from(allComponentKeys).forEach(componentKey => {
+                                    componentObj[componentKey] = true;
+                                });
+                                updated[element] = componentObj;
+                            } else {
+                                Array.from(allComponentKeys).forEach(componentKey => {
+                                    if (updated[element][componentKey] === undefined) {
+                                        updated[element][componentKey] = true;
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+                return updated;
+            });
         }
 
         headerUpdatePending.current = false;
     }, [dataCache]);
 
-    // Отложенное обновление структуры заголовков после окончания скролла
     const processPendingHeaderUpdate = useCallback(() => {
         if (headerUpdatePending.current && scrollVelocity.current <= 0.1 && !isScrollCompensating.current) {
             updateHeaderStructure([]);
         }
     }, [updateHeaderStructure]);
 
-    const getCellValue = useCallback((processedRow, groupName, key) => {
-        if (groupName === "Работающие агрегаты") {
-            const originalData = dataCache[processedRow.date];
-            return originalData && originalData[key] !== undefined ? originalData[key] : '—';
-        }
-
-        return processedRow.elements && processedRow.elements[key]
-            ? processedRow.elements[key].status
-            : '—';
-    }, [dataCache]);
-
-    // ИСПРАВЛЕНИЕ: Стабильные значения для рендеринга таблицы
     const renderHeaderStructure = useMemo(() => {
-        // Используем стабильную структуру во время скролла
         if (scrollVelocity.current > 0.5 && Object.keys(stableHeaderStructure.current).length > 0) {
             return stableHeaderStructure.current;
         }
@@ -403,12 +494,81 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
     }, [headerStructure]);
 
     const renderGroupOrder = useMemo(() => {
-        // Используем стабильный порядок во время скролла
         if (scrollVelocity.current > 0.5 && stableGroupOrder.current.length > 0) {
             return stableGroupOrder.current;
         }
         return groupOrder;
     }, [groupOrder]);
+
+    const filteredHeaderStructure = useMemo(() => {
+        const filtered = {};
+        Object.entries(renderHeaderStructure).forEach(([groupName, elements]) => {
+            if (groupVisibility[groupName]) {
+                filtered[groupName] = elements.filter(element => elementVisibility[element]);
+            }
+        });
+        return filtered;
+    }, [renderHeaderStructure, groupVisibility, elementVisibility]);
+
+    const filteredGroupOrder = useMemo(() => {
+        return renderGroupOrder.filter(groupName =>
+            groupVisibility[groupName] &&
+            filteredHeaderStructure[groupName] &&
+            filteredHeaderStructure[groupName].length > 0
+        );
+    }, [renderGroupOrder, groupVisibility, filteredHeaderStructure]);
+
+    const getCellValue = useCallback((processedRow, groupName, key) => {
+        if (groupName === "Работающие агрегаты") {
+            const originalData = dataCache[processedRow.date];
+            if (originalData?.working_aggregates?.[key] !== undefined) {
+                return originalData.working_aggregates[key];
+            }
+            return '—';
+        }
+
+        if (processedRow.elements && processedRow.elements[key]) {
+            const element = processedRow.elements[key];
+            if (showWorkHours && element.work_hours && Object.keys(element.work_hours).length > 0) {
+                const visibleComponents = Object.entries(element.work_hours)
+                    .filter(([componentKey]) => componentVisibility[key]?.[componentKey])
+                    .map(([componentKey, hours]) => `${hours}`);
+
+                if (visibleComponents.length > 0) {
+                    return (
+                        <>
+                            {element.status}
+                            <br />
+                            <span style={{ fontSize: '10px' }}>
+                                {visibleComponents.map((component, index) => (
+                                    <span key={index}>{component}<br/></span>
+                                ))}
+                            </span>
+                        </>
+                    );
+                }
+            }
+            return element.status;
+        }
+
+        return '—';
+    }, [dataCache, showWorkHours, componentVisibility]);
+
+    const getCellStatus = useCallback((processedRow, groupName, key) => {
+        if (groupName === "Работающие агрегаты") {
+            const originalData = dataCache[processedRow.date];
+            if (originalData?.working_aggregates?.[key] !== undefined) {
+                return originalData.working_aggregates[key];
+            }
+            return '—';
+        }
+
+        if (processedRow.elements && processedRow.elements[key]) {
+            return processedRow.elements[key].status;
+        }
+
+        return '—';
+    }, [dataCache]);
 
     const loadBatch = useCallback(async (startDate, batchSize) => {
         const batchKey = `${startDate}+${batchSize}`;
@@ -445,7 +605,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         return promise;
     }, [loadingBatches, updateHeaderStructure]);
 
-    // Отложенный пересчет rowspan с учетом скорости скролла
     const scheduleRowspanRecalculation = useCallback(() => {
         if (pendingRecalculation.current) {
             clearTimeout(pendingRecalculation.current);
@@ -507,7 +666,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         scheduleRowspanRecalculation();
     }, [visibleRange, dates, dataCache, loadBatch, scrollBatchSize, scheduleRowspanRecalculation]);
 
-    // ИСПРАВЛЕНИЕ: Полностью переписанная функция extendDates с правильной компенсацией скролла
     const extendDates = useCallback(async (direction, isPreemptive = false) => {
         const loadPromises = [];
 
@@ -557,19 +715,15 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                 const currentFirstVisibleIndex = Math.floor(currentScrollTop / rowHeight);
                 const scrollOffset = currentScrollTop % rowHeight;
 
-                // ИСПРАВЛЕНИЕ: Используем callback setState для получения актуального состояния
                 setDates(prevDates => {
                     const updatedDates = [...newDates, ...prevDates];
 
-                    // Компенсация скролла в том же обновлении состояния
                     requestAnimationFrame(() => {
                         if (containerRef.current && isScrollCompensating.current) {
-                            // Рассчитываем новую позицию на основе актуального состояния
                             const compensatedScrollTop = (currentFirstVisibleIndex + newDates.length) * rowHeight + scrollOffset;
                             containerRef.current.scrollTop = compensatedScrollTop;
                             setScrollTop(compensatedScrollTop);
 
-                            // Сбрасываем флаг компенсации через небольшую задержку
                             setTimeout(() => {
                                 isScrollCompensating.current = false;
                             }, 50);
@@ -590,7 +744,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
 
             await Promise.allSettled(loadPromises);
 
-            // Отложенный пересчет rowspan после завершения компенсации
             setTimeout(() => {
                 scheduleRowspanRecalculation();
             }, 150);
@@ -598,10 +751,7 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
     }, [dates, scrollBatchSize, rowHeight, loadBatch, scheduleRowspanRecalculation]);
 
     const handleScrollImmediate = useCallback(async () => {
-        if (!containerRef.current) return;
-
-        // ИСПРАВЛЕНИЕ: Игнорируем события скролла во время компенсации
-        if (isScrollCompensating.current) return;
+        if (!containerRef.current || isScrollCompensating.current) return;
 
         const container = containerRef.current;
         const newScrollTop = container.scrollTop;
@@ -622,7 +772,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         setScrollTop(newScrollTop);
         setContainerHeight(newContainerHeight);
 
-        // Обрабатываем отложенные обновления заголовков при замедлении скролла
         if (scrollVelocity.current <= 0.5) {
             processPendingHeaderUpdate();
         }
@@ -681,6 +830,54 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         }
     }, [handleScrollThrottled]);
 
+    // Обработчики для аккордеона
+    const toggleGroupExpansion = useCallback((groupName) => {
+        setExpandedGroups(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(groupName)) {
+                newSet.delete(groupName);
+            } else {
+                newSet.add(groupName);
+            }
+            return newSet;
+        });
+    }, []);
+
+    const toggleElementExpansion = useCallback((elementName) => {
+        setExpandedElements(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(elementName)) {
+                newSet.delete(elementName);
+            } else {
+                newSet.add(elementName);
+            }
+            return newSet;
+        });
+    }, []);
+
+    const toggleAllElementsInGroup = useCallback((groupName, visible) => {
+        if (renderHeaderStructure[groupName]) {
+            const updates = {};
+            renderHeaderStructure[groupName].forEach(element => {
+                updates[element] = visible;
+            });
+            setElementVisibility(prev => ({ ...prev, ...updates }));
+        }
+    }, [renderHeaderStructure]);
+
+    const toggleAllComponentsForElement = useCallback((elementName, visible) => {
+        setComponentVisibility(prev => {
+            if (prev[elementName]) {
+                const updated = { ...prev[elementName] };
+                Object.keys(updated).forEach(componentKey => {
+                    updated[componentKey] = visible;
+                });
+                return { ...prev, [elementName]: updated };
+            }
+            return prev;
+        });
+    }, []);
+
     useEffect(() => {
         if (!isInitialized && dates.length === 0) {
             const initialDates = generateInitialDates();
@@ -722,8 +919,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                     );
 
                     await Promise.allSettled(loadPromises);
-
-                    // Пересчитываем rowspan для всех загруженных данных
                     scheduleRowspanRecalculation();
 
                     setTimeout(() => {
@@ -768,7 +963,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         }
     }, [isInitialized, loadVisibleData]);
 
-    // Очистка таймаутов при размонтировании
     useEffect(() => {
         return () => {
             if (pendingRecalculation.current) {
@@ -821,6 +1015,262 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
 
     return (
         <>
+            <div style={{
+                display: 'flex',
+                gap: '20px',
+                marginBottom: '10px',
+                alignItems: 'center'
+            }}>
+                <div>План 1</div>
+                <div>Отображать отклонения</div>
+                <div>Режим редактирования</div>
+                <button
+                    onClick={() => setShowFilters(!showFilters)}
+                    style={{
+                        padding: '8px 16px',
+                        backgroundColor: 'rgba(108,155,255,0.45)',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Задать фильтр
+                </button>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                        type="checkbox"
+                        checked={showWorkHours}
+                        onChange={(e) => setShowWorkHours(e.target.checked)}
+                    />
+                    Показать часы работы
+                </label>
+            </div>
+
+            {showFilters && (
+                <div style={{
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    marginBottom: '16px',
+                    backgroundColor: '#f9f9f9',
+                    maxHeight: '400px',
+                    overflowY: 'auto'
+                }}>
+                    <div style={{ marginBottom: '16px', fontWeight: 'bold', fontSize: '16px' }}>
+                        Настройки отображения
+                    </div>
+
+                    {renderGroupOrder.map(groupName => (
+                        <div key={groupName} style={{ marginBottom: '8px', border: '1px solid #e0e0e0', borderRadius: '4px', backgroundColor: 'white' }}>
+                            {/* Заголовок группы */}
+                            <div
+                                onClick={() => toggleGroupExpansion(groupName)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '12px 16px',
+                                    cursor: 'pointer',
+                                    backgroundColor: '#f8f9fa',
+                                    borderBottom: expandedGroups.has(groupName) ? '1px solid #e0e0e0' : 'none',
+                                    borderRadius: expandedGroups.has(groupName) ? '4px 4px 0 0' : '4px'
+                                }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <span style={{
+                                        fontSize: '16px',
+                                        transform: expandedGroups.has(groupName) ? 'rotate(90deg)' : 'rotate(0deg)',
+                                        transition: 'transform 0.2s ease'
+                                    }}>
+                                        ▶
+                                    </span>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: '600' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={groupVisibility[groupName] || false}
+                                            onChange={(e) => {
+                                                e.stopPropagation();
+                                                setGroupVisibility(prev => ({
+                                                    ...prev,
+                                                    [groupName]: e.target.checked
+                                                }));
+                                            }}
+                                        />
+                                        {groupName}
+                                    </label>
+                                </div>
+
+                                {groupVisibility[groupName] && renderHeaderStructure[groupName] && (
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleAllElementsInGroup(groupName, true);
+                                            }}
+                                            style={{
+                                                padding: '4px 8px',
+                                                fontSize: '12px',
+                                                backgroundColor: '#28a745',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '3px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Все
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleAllElementsInGroup(groupName, false);
+                                            }}
+                                            style={{
+                                                padding: '4px 8px',
+                                                fontSize: '12px',
+                                                backgroundColor: '#dc3545',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '3px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Никого
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Содержимое группы */}
+                            {expandedGroups.has(groupName) && groupVisibility[groupName] && renderHeaderStructure[groupName] && (
+                                <div style={{ padding: '8px 16px 16px 16px' }}>
+                                    {renderHeaderStructure[groupName].map(element => (
+                                        <div key={element} style={{ marginBottom: '8px', marginLeft: '20px' }}>
+                                            {/* Элемент */}
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    {groupName !== "Работающие агрегаты" && (
+                                                        <span
+                                                            onClick={() => toggleElementExpansion(element)}
+                                                            style={{
+                                                                fontSize: '14px',
+                                                                cursor: 'pointer',
+                                                                transform: expandedElements.has(element) ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                                transition: 'transform 0.2s ease',
+                                                                color: '#666'
+                                                            }}
+                                                        >
+                                                            ▶
+                                                        </span>
+                                                    )}
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={elementVisibility[element] || false}
+                                                            onChange={(e) => setElementVisibility(prev => ({
+                                                                ...prev,
+                                                                [element]: e.target.checked
+                                                            }))}
+                                                        />
+                                                        <span style={{ fontSize: '14px', fontWeight: '500' }}>{element}</span>
+                                                    </label>
+                                                </div>
+
+                                                {groupName !== "Работающие агрегаты" && elementVisibility[element] && componentVisibility[element] && (
+                                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                                        <button
+                                                            onClick={() => toggleAllComponentsForElement(element, true)}
+                                                            style={{
+                                                                padding: '2px 6px',
+                                                                fontSize: '10px',
+                                                                backgroundColor: '#17a2b8',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                borderRadius: '2px',
+                                                                cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            Все компоненты
+                                                        </button>
+                                                        <button
+                                                            onClick={() => toggleAllComponentsForElement(element, false)}
+                                                            style={{
+                                                                padding: '2px 6px',
+                                                                fontSize: '10px',
+                                                                backgroundColor: '#6c757d',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                borderRadius: '2px',
+                                                                cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            Скрыть все
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Компоненты элемента */}
+                                            {groupName !== "Работающие агрегаты" &&
+                                                expandedElements.has(element) &&
+                                                elementVisibility[element] &&
+                                                componentVisibility[element] && (
+                                                    <div style={{
+                                                        marginLeft: '32px',
+                                                        paddingLeft: '12px',
+                                                        borderLeft: '2px solid #e9ecef',
+                                                        backgroundColor: '#f8f9fa',
+                                                        borderRadius: '0 4px 4px 0',
+                                                        padding: '8px 12px'
+                                                    }}>
+                                                        <div style={{ marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: '#6c757d' }}>
+                                                            Компоненты наработки:
+                                                        </div>
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                            {Object.entries(componentVisibility[element]).map(([componentKey, isVisible]) => (
+                                                                <label key={componentKey} style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px',
+                                                                    cursor: 'pointer',
+                                                                    padding: '4px 8px',
+                                                                    backgroundColor: isVisible ? '#e3f2fd' : '#f5f5f5',
+                                                                    borderRadius: '12px',
+                                                                    border: `1px solid ${isVisible ? '#90caf9' : '#e0e0e0'}`,
+                                                                    fontSize: '12px',
+                                                                    transition: 'all 0.2s ease'
+                                                                }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={isVisible}
+                                                                        onChange={(e) => setComponentVisibility(prev => ({
+                                                                            ...prev,
+                                                                            [element]: {
+                                                                                ...prev[element],
+                                                                                [componentKey]: e.target.checked
+                                                                            }
+                                                                        }))}
+                                                                        style={{ margin: 0 }}
+                                                                    />
+                                                                    <span style={{
+                                                                        fontWeight: '500',
+                                                                        color: isVisible ? '#1976d2' : '#666'
+                                                                    }}>
+                                                                    {componentKey}
+                                                                </span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+
             <div
                 ref={containerRef}
                 style={{
@@ -836,15 +1286,14 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                 onScroll={handleScroll}
             >
                 <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
-                    <thead
-                        style={{
-                            position: 'sticky',
-                            top: 0,
-                            background: activeColorTheme("BGHeader"),
-                            zIndex: 10
-                        }}>
+                    <thead style={{
+                        position: 'sticky',
+                        top: 0,
+                        background: activeColorTheme("BGHeader"),
+                        zIndex: 10
+                    }}>
                     <tr>
-                        <th rowSpan="2" style={{
+                        <th rowSpan="1" style={{
                             padding: '8px',
                             minWidth: '100px',
                             borderRight: '1px solid #ddd',
@@ -854,10 +1303,10 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                         }}>
                             Дата
                         </th>
-                        {renderGroupOrder.map((groupName, index) => (
+                        {filteredGroupOrder.map((groupName, index) => (
                             <th
                                 key={groupName}
-                                colSpan={renderHeaderStructure[groupName]?.length || 1}
+                                colSpan={filteredHeaderStructure[groupName]?.length || 1}
                                 style={{
                                     textWrap: 'nowrap',
                                     borderLeft: index > 0 ? '2px solid #fff' : 'none',
@@ -872,8 +1321,18 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                         ))}
                     </tr>
                     <tr>
-                        {renderGroupOrder.map((groupName, groupIndex) => (
-                            (renderHeaderStructure[groupName] || []).map((key, keyIndex) => (
+                        <td style={{
+                            padding: '8px',
+                            minWidth: '100px',
+                            borderRight: '1px solid #ddd',
+                            fontSize: '14px',
+                            fontWeight: 'normal',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            <input type={'date'} placeholder={'перейти к дате'} />
+                        </td>
+                        {filteredGroupOrder.map((groupName, groupIndex) => (
+                            (filteredHeaderStructure[groupName] || []).map((key, keyIndex) => (
                                 <th
                                     key={`${groupName}-${key}`}
                                     style={{
@@ -925,9 +1384,10 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                                     {dateString}
                                 </td>
 
-                                {renderGroupOrder.map((groupName, groupIndex) => (
-                                    (renderHeaderStructure[groupName] || []).map((key, keyIndex) => {
+                                {filteredGroupOrder.map((groupName, groupIndex) => (
+                                    (filteredHeaderStructure[groupName] || []).map((key, keyIndex) => {
                                         const cellValue = processedRow ? getCellValue(processedRow, groupName, key) : '—';
+                                        const cellStatus = processedRow ? getCellStatus(processedRow, groupName, key) : '—';
 
                                         let shouldDisplay = true;
                                         let rowSpan = 1;
@@ -953,13 +1413,13 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                                                     textAlign: 'center',
                                                     backgroundColor: isLoading ?
                                                         'transparent' :
-                                                        activeColorTheme(cellValue, isPastDate),
+                                                        activeColorTheme(cellStatus, isPastDate),
                                                     fontSize: '14px',
                                                     minWidth: '50px',
                                                     verticalAlign: 'middle',
                                                     borderLeft: keyIndex === 0 && groupIndex > 0 ? '2px solid #fff' : 'none',
                                                     borderRight: '1px solid #ddd',
-                                                    fontWeight: 'normal',
+                                                    fontWeight: 'normal'
                                                 }}
                                             >
                                                 {isLoading ? (
@@ -1023,6 +1483,13 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                 <span><strong>Размер батча:</strong> {scrollBatchSize} дней</span>
                 <span><strong>Скорость скролла:</strong> {scrollVelocity.current.toFixed(2)}</span>
                 <span><strong>Компенсация скролла:</strong> {isScrollCompensating.current ? 'Да' : 'Нет'}</span>
+                <span><strong>Показать часы работы:</strong> {showWorkHours ? 'Да' : 'Нет'}</span>
+                <span><strong>Фильтры открыты:</strong> {showFilters ? 'Да' : 'Нет'}</span>
+                <span><strong>Видимых групп:</strong> {filteredGroupOrder.length}</span>
+                <span><strong>Всего групп:</strong> {renderGroupOrder.length}</span>
+                <span><strong>Компонентных фильтров:</strong> {Object.keys(componentVisibility).length}</span>
+                <span><strong>Развернутых групп:</strong> {expandedGroups.size}</span>
+                <span><strong>Развернутых элементов:</strong> {expandedElements.size}</span>
             </div>}
         </>
     );
