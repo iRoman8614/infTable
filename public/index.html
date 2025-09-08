@@ -1,24 +1,223 @@
+<!--<!DOCTYPE html>-->
+<!--<html lang="en">-->
+<!--  <head>-->
+<!--    <meta charset="utf-8" />-->
+<!--    <meta name="viewport" content="width=device-width, initial-scale=1" />-->
+<!--    <meta name="theme-color" content="#000000" />-->
+<!--    <meta-->
+<!--      name="description"-->
+<!--      content="Web site created using create-react-app"-->
+<!--    />-->
+<!--    <title>React App</title>-->
+<!--  </head>-->
+<!--  <body>-->
+<!--    <noscript>You need to enable JavaScript to run this app.</noscript>-->
+<!--    <virtualized-table-->
+<!--            id="table"-->
+<!--            max-width="100%"-->
+<!--            max-height="600px"-->
+<!--            scroll-batch-size="7"-->
+<!--            debug="false">-->
+<!--    </virtualized-table>-->
+<!--    <script src="../dist/virtualized-table.js"></script>-->
+<!--  </body>-->
+<!--</html>-->
+
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Web site created using create-react-app"
-    />
-    <title>React App</title>
-  </head>
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <virtualized-table
-            id="table"
-            max-width="100%"
-            max-height="600px"
-            scroll-batch-size="7"
-            debug="false">
-    </virtualized-table>
-    <script src="../dist/virtualized-table.js"></script>
-  </body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Virtualized Table - Working Example</title>
+  <style>
+    .debug-info {
+      background: #f8f9fa;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+      border: 1px solid #e9ecef;
+    }
+  </style>
+</head>
+<body>
+<h1>Таблица с провайдером 'М'</h1>
+
+<div class="debug-info" id="debug-info">
+  <strong>Статус:</strong> <span id="status">Инициализация...</span>
+</div>
+
+<virtualized-table
+        id="table"
+        max-width="100%"
+        max-height="600px"
+        scroll-batch-size="7"
+        debug="true">
+</virtualized-table>
+
+<script>
+  console.log('[Init] Начало инициализации');
+
+  const statusEl = document.getElementById('status');
+
+  function updateStatus(message) {
+    statusEl.textContent = message;
+    console.log(`[Status] ${message}`);
+  }
+
+  updateStatus('Установка провайдера...');
+
+  // Утилиты для работы с датами
+  function parseDateString(dateString) {
+    const [day, month, year] = dateString.split('.').map(Number);
+    return new Date(Date.UTC(year, month - 1, day));
+  }
+
+  function formatDate(date) {
+    return date.toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  }
+
+  // Провайдер данных с 'М' во всех ячейках
+  window.dp = async (startDate, days) => {
+    console.log(`[Provider] Загрузка: ${startDate}, дней: ${days}`);
+    updateStatus(`Загрузка данных: ${startDate} (+${days} дней)`);
+
+    // Небольшая задержка для имитации сети
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const startDateObj = parseDateString(startDate);
+    const batchData = [];
+
+    for (let i = 0; i < days; i++) {
+      const currentDate = new Date(startDateObj);
+      currentDate.setUTCDate(startDateObj.getUTCDate() + i);
+      const dateStr = formatDate(currentDate);
+
+      const dayData = {
+        date: dateStr,
+        agr1: 5,
+        agr2: 3,
+        agr3: 8,
+        stage1: [
+          {"20ГПА-1-1": "М"},
+          {"20ГПА-1-2": "М"},
+          {"20ГПА-1-3": "М"},
+          {"20ГПА-1-4": "М"},
+        ],
+        stage2: [
+          {"20ГПА-2-1": "М"},
+          {"20ГПА-2-2": "М"},
+          {"20ГПА-2-3": "М"},
+          {"20ГПА-2-4": "М"},
+        ],
+        stage3: [
+          {"20ГПА-3-1": "М"},
+          {"20ГПА-3-2": "М"},
+          {"20ГПА-3-3": "М"},
+          {"20ГПА-3-4": "М"},
+        ]
+      };
+
+      batchData.push(dayData);
+    }
+
+    console.log(`[Provider] Сгенерировано ${batchData.length} записей`);
+    updateStatus(`Данные загружены: ${batchData.length} записей`);
+
+    return { data: batchData };
+  };
+
+  updateStatus('Провайдер установлен, загрузка компонента...');
+
+  // Обработчик загрузки скрипта
+  function handleScriptLoad() {
+    updateStatus('Компонент загружен');
+
+    // Проверяем регистрацию web component
+    setTimeout(() => {
+      if (customElements.get('virtualized-table')) {
+        updateStatus('Web component зарегистрирован - готов к работе!');
+      } else {
+        updateStatus('ОШИБКА: Web component не зарегистрирован');
+      }
+    }, 500);
+  }
+
+  function handleScriptError() {
+    updateStatus('ОШИБКА: Не удалось загрузить компонент');
+    console.error('[Error] Ошибка загрузки скрипта компонента');
+  }
+
+  // Обработчик общих ошибок
+  window.addEventListener('error', (e) => {
+    console.error('[Global Error]', e.error);
+    updateStatus(`Ошибка: ${e.message}`);
+  });
+
+  // Проверка готовности DOM
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      updateStatus('DOM готов');
+    });
+  } else {
+    updateStatus('DOM готов');
+  }
+
+  // Функция для попытки загрузки с разными путями
+  function tryLoadScript() {
+    const paths = [
+      './dist/virtualized-table.js',           // Относительный путь
+      '/dist/virtualized-table.js',            // Абсолютный путь
+      '../dist/virtualized-table.js',          // На уровень выше
+      'dist/virtualized-table.js',             // Без ./
+      './virtualized-table.js',                // В той же папке
+      '/public/dist/virtualized-table.js'      // Полный путь
+    ];
+
+    function loadWithPath(index = 0) {
+      if (index >= paths.length) {
+        updateStatus('ОШИБКА: Не удалось найти компонент ни по одному пути');
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = paths[index];
+
+      script.onload = () => {
+        console.log(`[Success] Компонент загружен с пути: ${paths[index]}`);
+        handleScriptLoad();
+      };
+
+      script.onerror = () => {
+        console.log(`[Failed] Путь не работает: ${paths[index]}`);
+        loadWithPath(index + 1);
+      };
+
+      document.head.appendChild(script);
+    }
+
+    loadWithPath();
+  }
+
+  // Запускаем попытку загрузки
+  tryLoadScript();
+
+  // Финальная проверка через 3 секунды
+  setTimeout(() => {
+    const table = document.getElementById('table');
+    if (table && table.shadowRoot) {
+      updateStatus('Таблица инициализирована успешно!');
+    } else if (table) {
+      updateStatus('Элемент найден, но shadow DOM отсутствует');
+    } else {
+      updateStatus('ОШИБКА: Элемент таблицы не найден');
+    }
+  }, 3000);
+</script>
+</body>
 </html>
