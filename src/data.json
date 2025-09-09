@@ -1,0 +1,28 @@
+{
+  "data": [
+    {
+      "dateFrom": "2023-09-01",
+      "dateTo": "2023-09-31",
+      "columns": [
+        {
+          "headerId": "node3",
+          "maintainces": [ //Maintenance
+            {
+              "id": "id",
+              "maintainceId": "uuid_1",
+              "startDate": "02.01.2000",
+              "endDate": "12.12.3000",
+              "metadata": { //extra params
+                "tooltip": "mock tooltip",
+                "link": "mock link",
+                "subtype": "state_node" // и тд
+                "downtime": true,
+                "assemblyState": true
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

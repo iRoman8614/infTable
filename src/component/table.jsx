@@ -55,7 +55,8 @@ const fetchBatchData = async (startDate, days) => {
 
         const result = {
             date: dateStr,
-            stages: stages
+            stages: stages,
+            timestamp: Date.now() // Добавляем временную метку для отслеживания актуальности
         };
 
         if (Math.random() > 0.3) {
@@ -128,6 +129,7 @@ function processDataForTable(data) {
     const processedData = data.map(row => {
         const processed = {
             date: row.date,
+            timestamp: row.timestamp,
             elements: {}
         };
 
@@ -269,15 +271,19 @@ const smartThrottle = (func, limit) => {
 };
 
 /**
- * Виртуализированная таблица с rowspan и бесконечным скроллом
+ * Виртуализированная таблица с актуальными данными и lazy loading
  */
-export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scrollBatchSize = 7, debug = true }) => {
+export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scrollBatchSize = 7, debug = true, refreshInterval = 30000 }) => {
     // Основные состояния
     const [dates, setDates] = useState([]);
-    const [dataCache, setDataCache] = useState({});
-    const [processedCache, setProcessedCache] = useState({});
-    const [loadingBatches, setLoadingBatches] = useState(new Set());
+    const [rawData, setRawData] = useState({}); // Сырые данные без кэширования
+    const [processedData, setProcessedData] = useState({}); // Обработанные данные для viewport
+    const [loadingDates, setLoadingDates] = useState(new Set());
     const [isInitialized, setIsInitialized] = useState(false);
+
+    // Состояния viewport
+    const [viewportData, setViewportData] = useState(new Set()); // Даты в зоне видимости + буфер
+    const [needsRefresh, setNeedsRefresh] = useState(new Set()); // Даты требующие обновления
 
     // Состояния для фильтров и настроек
     const [showWorkHours, setShowWorkHours] = useState(false);
@@ -305,14 +311,14 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
     const lastScrollTime = useRef(0);
     const lastScrollTop = useRef(0);
     const isScrollCompensating = useRef(false);
-    const pendingRecalculation = useRef(null);
-    const stableHeaderStructure = useRef({});
-    const stableGroupOrder = useRef([]);
-    const headerUpdatePending = useRef(false);
+    const refreshTimer = useRef(null);
 
     // Константы
-    const rowHeight = 40;
     const bufferSize = 20;
+
+    const dynamicRowHeight = useMemo(() => {
+        return showWorkHours ? 100 : 40;
+    }, [showWorkHours]);
 
     const today = useMemo(() => {
         const date = new Date();
@@ -336,19 +342,40 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
 
     const activeColorTheme = colorTheme || defaultColorTheme;
 
+    // Вычисляем viewport с буферной зоной
     const visibleRange = useMemo(() => {
         if (!containerHeight || dates.length === 0) {
             return { start: 0, end: Math.max(dates.length, scrollBatchSize * 2) };
         }
 
-        const visibleStart = Math.floor(scrollTop / rowHeight);
-        const visibleEnd = Math.ceil((scrollTop + containerHeight) / rowHeight);
+        const visibleStart = Math.floor(scrollTop / dynamicRowHeight);
+        const visibleEnd = Math.ceil((scrollTop + containerHeight) / dynamicRowHeight);
 
         const start = Math.max(0, visibleStart - bufferSize);
         const end = Math.min(dates.length, visibleEnd + bufferSize);
 
         return { start, end };
-    }, [scrollTop, containerHeight, dates.length, rowHeight, bufferSize, scrollBatchSize]);
+    }, [scrollTop, containerHeight, dates.length, dynamicRowHeight, bufferSize, scrollBatchSize]);
+
+    // Обновляем viewport данные когда изменяется видимый диапазон
+    useEffect(() => {
+        if (dates.length === 0) return;
+
+        const { start, end } = visibleRange;
+        const newViewportDates = new Set();
+
+        for (let i = start; i < end; i++) {
+            if (dates[i]) {
+                newViewportDates.add(dates[i]);
+            }
+        }
+
+        setViewportData(prev => {
+            const changed = prev.size !== newViewportDates.size ||
+                [...newViewportDates].some(date => !prev.has(date));
+            return changed ? newViewportDates : prev;
+        });
+    }, [visibleRange, dates]);
 
     const generateInitialDates = useCallback(() => {
         const initialDates = [];
@@ -363,15 +390,11 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         return initialDates;
     }, [today, scrollBatchSize]);
 
-    const updateHeaderStructure = useCallback((newDataEntries) => {
-        if (isScrollCompensating.current || scrollVelocity.current > 0.5) {
-            headerUpdatePending.current = true;
-            return;
-        }
-
+    // Обновляем структуру заголовков на основе всех доступных данных
+    const updateHeaderStructure = useCallback((newDataEntries = []) => {
         const newStructure = {};
         const newGroupOrder = [];
-        const allDataEntries = [...Object.values(dataCache), ...newDataEntries];
+        const allDataEntries = [...Object.values(rawData), ...newDataEntries];
         const uniqueAgrKeys = new Set();
         const uniqueStageGroups = {};
         const allComponentKeys = new Set();
@@ -422,105 +445,227 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
             newGroupOrder.push(stageName);
         });
 
-        const structureChanged = JSON.stringify(stableHeaderStructure.current) !== JSON.stringify(newStructure);
+        setHeaderStructure(newStructure);
+        setGroupOrder(newGroupOrder);
 
-        if (structureChanged) {
-            stableHeaderStructure.current = newStructure;
-            stableGroupOrder.current = newGroupOrder;
-            setHeaderStructure(newStructure);
-            setGroupOrder(newGroupOrder);
+        // Инициализация видимости элементов
+        setGroupVisibility(prev => {
+            const updated = { ...prev };
+            newGroupOrder.forEach(groupName => {
+                if (updated[groupName] === undefined) {
+                    updated[groupName] = true;
+                }
+            });
+            return updated;
+        });
 
-            setGroupVisibility(prev => {
-                const updated = { ...prev };
-                newGroupOrder.forEach(groupName => {
-                    if (updated[groupName] === undefined) {
-                        updated[groupName] = true;
+        setElementVisibility(prev => {
+            const updated = { ...prev };
+            Object.entries(newStructure).forEach(([groupName, elements]) => {
+                elements.forEach(element => {
+                    if (updated[element] === undefined) {
+                        updated[element] = true;
                     }
                 });
-                return updated;
             });
+            return updated;
+        });
 
-            setElementVisibility(prev => {
-                const updated = { ...prev };
-                Object.entries(newStructure).forEach(([groupName, elements]) => {
+        setComponentVisibility(prev => {
+            const updated = { ...prev };
+            Object.entries(newStructure).forEach(([groupName, elements]) => {
+                if (groupName !== "Работающие агрегаты") {
                     elements.forEach(element => {
-                        if (updated[element] === undefined) {
-                            updated[element] = true;
+                        if (!updated[element]) {
+                            const componentObj = {};
+                            Array.from(allComponentKeys).forEach(componentKey => {
+                                componentObj[componentKey] = true;
+                            });
+                            updated[element] = componentObj;
+                        } else {
+                            Array.from(allComponentKeys).forEach(componentKey => {
+                                if (updated[element][componentKey] === undefined) {
+                                    updated[element][componentKey] = true;
+                                }
+                            });
                         }
                     });
-                });
-                return updated;
+                }
             });
-
-            setComponentVisibility(prev => {
-                const updated = { ...prev };
-                Object.entries(newStructure).forEach(([groupName, elements]) => {
-                    if (groupName !== "Работающие агрегаты") {
-                        elements.forEach(element => {
-                            if (!updated[element]) {
-                                const componentObj = {};
-                                Array.from(allComponentKeys).forEach(componentKey => {
-                                    componentObj[componentKey] = true;
-                                });
-                                updated[element] = componentObj;
-                            } else {
-                                Array.from(allComponentKeys).forEach(componentKey => {
-                                    if (updated[element][componentKey] === undefined) {
-                                        updated[element][componentKey] = true;
-                                    }
-                                });
-                            }
-                        });
-                    }
-                });
-                return updated;
-            });
-        }
-
-        headerUpdatePending.current = false;
-    }, [dataCache]);
-
-    const processPendingHeaderUpdate = useCallback(() => {
-        if (headerUpdatePending.current && scrollVelocity.current <= 0.1 && !isScrollCompensating.current) {
-            updateHeaderStructure([]);
-        }
-    }, [updateHeaderStructure]);
-
-    const renderHeaderStructure = useMemo(() => {
-        if (scrollVelocity.current > 0.5 && Object.keys(stableHeaderStructure.current).length > 0) {
-            return stableHeaderStructure.current;
-        }
-        return headerStructure;
-    }, [headerStructure]);
-
-    const renderGroupOrder = useMemo(() => {
-        if (scrollVelocity.current > 0.5 && stableGroupOrder.current.length > 0) {
-            return stableGroupOrder.current;
-        }
-        return groupOrder;
-    }, [groupOrder]);
+            return updated;
+        });
+    }, [rawData]);
 
     const filteredHeaderStructure = useMemo(() => {
         const filtered = {};
-        Object.entries(renderHeaderStructure).forEach(([groupName, elements]) => {
+        Object.entries(headerStructure).forEach(([groupName, elements]) => {
             if (groupVisibility[groupName]) {
                 filtered[groupName] = elements.filter(element => elementVisibility[element]);
             }
         });
         return filtered;
-    }, [renderHeaderStructure, groupVisibility, elementVisibility]);
+    }, [headerStructure, groupVisibility, elementVisibility]);
 
     const filteredGroupOrder = useMemo(() => {
-        return renderGroupOrder.filter(groupName =>
+        return groupOrder.filter(groupName =>
             groupVisibility[groupName] &&
             filteredHeaderStructure[groupName] &&
             filteredHeaderStructure[groupName].length > 0
         );
-    }, [renderGroupOrder, groupVisibility, filteredHeaderStructure]);
+    }, [groupOrder, groupVisibility, filteredHeaderStructure]);
+
+    // Загрузка данных для конкретных дат
+    const loadDatesData = useCallback(async (datesToLoad) => {
+        if (datesToLoad.length === 0) return;
+
+        const newLoadingDates = new Set(datesToLoad);
+        setLoadingDates(prev => new Set([...prev, ...newLoadingDates]));
+
+        try {
+            // Группируем даты в батчи для оптимизации запросов
+            const sortedDates = [...datesToLoad].sort((a, b) => parseDateString(a) - parseDateString(b));
+            const batches = [];
+            let currentBatch = [sortedDates[0]];
+
+            for (let i = 1; i < sortedDates.length; i++) {
+                const prevDate = parseDateString(sortedDates[i - 1]);
+                const currDate = parseDateString(sortedDates[i]);
+                const daysDiff = (currDate - prevDate) / (1000 * 60 * 60 * 24);
+
+                if (daysDiff === 1 && currentBatch.length < scrollBatchSize) {
+                    currentBatch.push(sortedDates[i]);
+                } else {
+                    batches.push(currentBatch);
+                    currentBatch = [sortedDates[i]];
+                }
+            }
+            batches.push(currentBatch);
+
+            // Загружаем батчи параллельно
+            const batchPromises = batches.map(async (batch) => {
+                const batchKey = `${batch[0]}_${batch.length}`;
+
+                if (!fetchingPromises.current[batchKey]) {
+                    fetchingPromises.current[batchKey] = fetchBatchData(batch[0], batch.length);
+                }
+
+                try {
+                    const result = await fetchingPromises.current[batchKey];
+                    return result.data;
+                } finally {
+                    delete fetchingPromises.current[batchKey];
+                }
+            });
+
+            const results = await Promise.allSettled(batchPromises);
+            const allNewData = {};
+
+            results.forEach(result => {
+                if (result.status === 'fulfilled') {
+                    result.value.forEach(dayData => {
+                        allNewData[dayData.date] = dayData;
+                    });
+                }
+            });
+
+            // Обновляем сырые данные только для загруженных дат
+            setRawData(prev => ({
+                ...prev,
+                ...allNewData
+            }));
+
+            // Обновляем структуру заголовков
+            updateHeaderStructure(Object.values(allNewData));
+
+        } finally {
+            setLoadingDates(prev => {
+                const updated = new Set(prev);
+                newLoadingDates.forEach(date => updated.delete(date));
+                return updated;
+            });
+        }
+    }, [scrollBatchSize, updateHeaderStructure]);
+
+    // Обрабатываем данные для viewport
+    useEffect(() => {
+        if (viewportData.size === 0) return;
+
+        const viewportDates = Array.from(viewportData).sort((a, b) => parseDateString(a) - parseDateString(b));
+        const availableData = viewportDates
+            .map(date => rawData[date])
+            .filter(Boolean);
+
+        if (availableData.length > 0) {
+            const processed = processDataForTable(availableData);
+            const newProcessedData = {};
+
+            processed.processedData.forEach(row => {
+                newProcessedData[row.date] = row;
+            });
+
+            setProcessedData(newProcessedData);
+        }
+    }, [viewportData, rawData]);
+
+    // Определяем какие данные нужно загрузить
+    useEffect(() => {
+        if (viewportData.size === 0) return;
+
+        const datesToLoad = [];
+        const datesToRefresh = [];
+        const currentTime = Date.now();
+
+        viewportData.forEach(date => {
+            const data = rawData[date];
+            if (!data) {
+                datesToLoad.push(date);
+            } else if (refreshInterval > 0 && (currentTime - data.timestamp) > refreshInterval) {
+                datesToRefresh.push(date);
+            }
+        });
+
+        // Загружаем новые данные
+        if (datesToLoad.length > 0) {
+            loadDatesData(datesToLoad);
+        }
+
+        // Помечаем устаревшие данные для обновления
+        if (datesToRefresh.length > 0) {
+            setNeedsRefresh(prev => new Set([...prev, ...datesToRefresh]));
+        }
+    }, [viewportData, rawData, refreshInterval, loadDatesData]);
+
+    // Периодическое обновление данных в viewport
+    useEffect(() => {
+        if (refreshInterval <= 0) return;
+
+        const scheduleRefresh = () => {
+            if (refreshTimer.current) {
+                clearTimeout(refreshTimer.current);
+            }
+
+            refreshTimer.current = setTimeout(async () => {
+                if (needsRefresh.size > 0) {
+                    const datesToRefresh = Array.from(needsRefresh);
+                    setNeedsRefresh(new Set());
+                    await loadDatesData(datesToRefresh);
+                }
+                scheduleRefresh();
+            }, Math.min(refreshInterval / 4, 5000)); // Проверяем чаще чем interval
+        };
+
+        scheduleRefresh();
+
+        return () => {
+            if (refreshTimer.current) {
+                clearTimeout(refreshTimer.current);
+            }
+        };
+    }, [needsRefresh, refreshInterval, loadDatesData]);
 
     const getCellValue = useCallback((processedRow, groupName, key) => {
         if (groupName === "Работающие агрегаты") {
-            const originalData = dataCache[processedRow.date];
+            const originalData = rawData[processedRow.date];
             if (originalData?.working_aggregates?.[key] !== undefined) {
                 return originalData.working_aggregates[key];
             }
@@ -536,15 +681,25 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
 
                 if (visibleComponents.length > 0) {
                     return (
-                        <>
-                            {element.status}
-                            <br />
-                            <span style={{ fontSize: '10px' }}>
+                        <div style={{
+                            fontSize: '12px',
+                            lineHeight: '1.2',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '2px'
+                        }}>
+                            <div style={{ fontWeight: 'bold', fontSize: '14px' }}>
+                                {element.status}
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#666' }}>
                                 {visibleComponents.map((component, index) => (
-                                    <span key={index}>{component}<br/></span>
+                                    <div key={index} style={{ margin: '0' }}>
+                                        {component}
+                                    </div>
                                 ))}
-                            </span>
-                        </>
+                            </div>
+                        </div>
                     );
                 }
             }
@@ -552,11 +707,11 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         }
 
         return '—';
-    }, [dataCache, showWorkHours, componentVisibility]);
+    }, [rawData, showWorkHours, componentVisibility]);
 
     const getCellStatus = useCallback((processedRow, groupName, key) => {
         if (groupName === "Работающие агрегаты") {
-            const originalData = dataCache[processedRow.date];
+            const originalData = rawData[processedRow.date];
             if (originalData?.working_aggregates?.[key] !== undefined) {
                 return originalData.working_aggregates[key];
             }
@@ -568,107 +723,9 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         }
 
         return '—';
-    }, [dataCache]);
-
-    const loadBatch = useCallback(async (startDate, batchSize) => {
-        const batchKey = `${startDate}+${batchSize}`;
-
-        if (fetchingPromises.current[batchKey] || loadingBatches.has(batchKey)) {
-            return fetchingPromises.current[batchKey];
-        }
-
-        setLoadingBatches(prev => new Set([...prev, batchKey]));
-
-        const promise = fetchBatchData(startDate, batchSize)
-            .then(batchData => {
-                setDataCache(prev => {
-                    const updated = { ...prev };
-                    batchData.data.forEach(dayData => {
-                        updated[dayData.date] = dayData;
-                    });
-                    return updated;
-                });
-
-                updateHeaderStructure(batchData.data);
-                return batchData;
-            })
-            .finally(() => {
-                setLoadingBatches(prev => {
-                    const updated = new Set(prev);
-                    updated.delete(batchKey);
-                    return updated;
-                });
-                delete fetchingPromises.current[batchKey];
-            });
-
-        fetchingPromises.current[batchKey] = promise;
-        return promise;
-    }, [loadingBatches, updateHeaderStructure]);
-
-    const scheduleRowspanRecalculation = useCallback(() => {
-        if (pendingRecalculation.current) {
-            clearTimeout(pendingRecalculation.current);
-        }
-
-        pendingRecalculation.current = setTimeout(() => {
-            if (!isScrollCompensating.current && scrollVelocity.current <= 0.3) {
-                const allAvailableDates = Object.keys(dataCache).sort((a, b) => parseDateString(a) - parseDateString(b));
-                const dataForProcessing = allAvailableDates.map(dateStr => dataCache[dateStr]).filter(Boolean);
-
-                if (dataForProcessing.length > 0) {
-                    const processed = processDataForTable(dataForProcessing);
-                    setProcessedCache(prev => {
-                        const updated = { ...prev };
-                        processed.processedData.forEach(processedRow => {
-                            updated[processedRow.date] = processedRow;
-                        });
-                        return updated;
-                    });
-                }
-            }
-            pendingRecalculation.current = null;
-        }, scrollVelocity.current > 1 ? 200 : 100);
-    }, [dataCache]);
-
-    const loadVisibleData = useCallback(async () => {
-        const { start, end } = visibleRange;
-        const visibleDates = dates.slice(start, end);
-        const missingDates = visibleDates.filter(date => !dataCache[date]);
-
-        if (missingDates.length === 0) return;
-
-        const batchesToLoad = [];
-        if (missingDates.length > 0) {
-            let currentBatchStart = missingDates[0];
-            let currentBatchLength = 1;
-
-            for (let i = 1; i < missingDates.length; i++) {
-                const prevDate = parseDateString(missingDates[i - 1]);
-                const currDate = parseDateString(missingDates[i]);
-                const daysDiff = (currDate - prevDate) / (1000 * 60 * 60 * 24);
-
-                if (daysDiff === 1 && currentBatchLength < scrollBatchSize) {
-                    currentBatchLength++;
-                } else {
-                    batchesToLoad.push({ startDate: currentBatchStart, length: currentBatchLength });
-                    currentBatchStart = missingDates[i];
-                    currentBatchLength = 1;
-                }
-            }
-            batchesToLoad.push({ startDate: currentBatchStart, length: currentBatchLength });
-        }
-
-        const loadPromises = batchesToLoad.map(batch =>
-            loadBatch(batch.startDate, scrollBatchSize)
-        );
-
-        await Promise.allSettled(loadPromises);
-        scheduleRowspanRecalculation();
-    }, [visibleRange, dates, dataCache, loadBatch, scrollBatchSize, scheduleRowspanRecalculation]);
+    }, [rawData]);
 
     const extendDates = useCallback(async (direction, isPreemptive = false) => {
-        const loadPromises = [];
-
         if (direction === 'forward') {
             const lastDate = dates[dates.length - 1];
             if (!lastDate) return;
@@ -684,15 +741,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
             }
 
             setDates(prev => [...prev, ...newDates]);
-
-            for (let i = 0; i < newDates.length; i += scrollBatchSize) {
-                const batchStart = newDates[i];
-                const batchSize = Math.min(scrollBatchSize, newDates.length - i);
-                loadPromises.push(loadBatch(batchStart, batchSize));
-            }
-
-            await Promise.allSettled(loadPromises);
-            scheduleRowspanRecalculation();
 
         } else if (direction === 'backward') {
             const firstDate = dates[0];
@@ -712,15 +760,15 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                 isScrollCompensating.current = true;
 
                 const currentScrollTop = containerRef.current.scrollTop;
-                const currentFirstVisibleIndex = Math.floor(currentScrollTop / rowHeight);
-                const scrollOffset = currentScrollTop % rowHeight;
+                const currentFirstVisibleIndex = Math.floor(currentScrollTop / dynamicRowHeight);
+                const scrollOffset = currentScrollTop % dynamicRowHeight;
 
                 setDates(prevDates => {
                     const updatedDates = [...newDates, ...prevDates];
 
                     requestAnimationFrame(() => {
                         if (containerRef.current && isScrollCompensating.current) {
-                            const compensatedScrollTop = (currentFirstVisibleIndex + newDates.length) * rowHeight + scrollOffset;
+                            const compensatedScrollTop = (currentFirstVisibleIndex + newDates.length) * dynamicRowHeight + scrollOffset;
                             containerRef.current.scrollTop = compensatedScrollTop;
                             setScrollTop(compensatedScrollTop);
 
@@ -735,20 +783,8 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
             } else {
                 setDates(prev => [...newDates, ...prev]);
             }
-
-            for (let i = 0; i < newDates.length; i += scrollBatchSize) {
-                const batchStart = newDates[i];
-                const batchSize = Math.min(scrollBatchSize, newDates.length - i);
-                loadPromises.push(loadBatch(batchStart, batchSize));
-            }
-
-            await Promise.allSettled(loadPromises);
-
-            setTimeout(() => {
-                scheduleRowspanRecalculation();
-            }, 150);
         }
-    }, [dates, scrollBatchSize, rowHeight, loadBatch, scheduleRowspanRecalculation]);
+    }, [dates, scrollBatchSize, dynamicRowHeight]);
 
     const handleScrollImmediate = useCallback(async () => {
         if (!containerRef.current || isScrollCompensating.current) return;
@@ -772,11 +808,7 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         setScrollTop(newScrollTop);
         setContainerHeight(newContainerHeight);
 
-        if (scrollVelocity.current <= 0.5) {
-            processPendingHeaderUpdate();
-        }
-
-        const baseThreshold = rowHeight * bufferSize;
+        const baseThreshold = dynamicRowHeight * bufferSize;
         const velocityMultiplier = Math.min(3, 1 + scrollVelocity.current * 2);
         const dynamicThreshold = baseThreshold * velocityMultiplier;
 
@@ -811,7 +843,7 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
         if (promises.length > 0) {
             await Promise.allSettled(promises);
         }
-    }, [dates, extendDates, rowHeight, bufferSize, processPendingHeaderUpdate]);
+    }, [dates, extendDates, dynamicRowHeight, bufferSize]);
 
     const handleScrollThrottled = useMemo(
         () => smartThrottle(handleScrollImmediate, 8),
@@ -856,28 +888,16 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
     }, []);
 
     const toggleAllElementsInGroup = useCallback((groupName, visible) => {
-        if (renderHeaderStructure[groupName]) {
+        if (headerStructure[groupName]) {
             const updates = {};
-            renderHeaderStructure[groupName].forEach(element => {
+            headerStructure[groupName].forEach(element => {
                 updates[element] = visible;
             });
             setElementVisibility(prev => ({ ...prev, ...updates }));
         }
-    }, [renderHeaderStructure]);
+    }, [headerStructure]);
 
-    const toggleAllComponentsForElement = useCallback((elementName, visible) => {
-        setComponentVisibility(prev => {
-            if (prev[elementName]) {
-                const updated = { ...prev[elementName] };
-                Object.keys(updated).forEach(componentKey => {
-                    updated[componentKey] = visible;
-                });
-                return { ...prev, [elementName]: updated };
-            }
-            return prev;
-        });
-    }, []);
-
+    // Инициализация таблицы
     useEffect(() => {
         if (!isInitialized && dates.length === 0) {
             const initialDates = generateInitialDates();
@@ -900,54 +920,15 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                     });
 
                     const containerHeight = containerRef.current.clientHeight;
-                    const visibleRows = Math.ceil(containerHeight / rowHeight);
-                    const totalRowsNeeded = visibleRows + (bufferSize * 2);
-                    const initialBatchSize = Math.max(scrollBatchSize * 2, totalRowsNeeded);
-
-                    const startIndex = Math.max(0, todayIndex - Math.floor(initialBatchSize / 2));
-                    const endIndex = Math.min(initialDates.length, startIndex + initialBatchSize);
-
-                    const batchesToLoad = [];
-                    for (let i = startIndex; i < endIndex; i += scrollBatchSize) {
-                        const batchStart = initialDates[i];
-                        const batchSize = Math.min(scrollBatchSize, endIndex - i);
-                        batchesToLoad.push({ startDate: batchStart, size: batchSize });
-                    }
-
-                    const loadPromises = batchesToLoad.map(batch =>
-                        loadBatch(batch.startDate, batch.size)
-                    );
-
-                    await Promise.allSettled(loadPromises);
-                    scheduleRowspanRecalculation();
+                    setContainerHeight(containerHeight);
+                    setScrollTop(0);
+                    setIsInitialized(true);
 
                     setTimeout(() => {
                         if (containerRef.current) {
-                            const targetScroll = todayIndex * rowHeight - (containerHeight / 2) + (rowHeight / 2);
+                            const targetScroll = todayIndex * dynamicRowHeight - (containerHeight / 2) + (dynamicRowHeight / 2);
                             containerRef.current.scrollTop = Math.max(0, targetScroll);
-
-                            setContainerHeight(containerHeight);
                             setScrollTop(containerRef.current.scrollTop);
-                            setIsInitialized(true);
-
-                            setTimeout(() => {
-                                const preloadPromises = [];
-
-                                if (startIndex > bufferSize) {
-                                    const preloadStartUp = Math.max(0, startIndex - bufferSize);
-                                    preloadPromises.push(loadBatch(initialDates[preloadStartUp], bufferSize));
-                                }
-
-                                if (endIndex < initialDates.length - bufferSize) {
-                                    preloadPromises.push(loadBatch(initialDates[endIndex], bufferSize));
-                                }
-
-                                if (preloadPromises.length > 0) {
-                                    Promise.allSettled(preloadPromises).then(() => {
-                                        scheduleRowspanRecalculation();
-                                    });
-                                }
-                            }, 200);
                         }
                     }, 100);
                 }
@@ -955,63 +936,66 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
 
             initializeTable();
         }
-    }, [isInitialized, dates.length, generateInitialDates, today, rowHeight, scrollBatchSize, loadBatch, bufferSize, scheduleRowspanRecalculation]);
+    }, [isInitialized, dates.length, generateInitialDates, today, dynamicRowHeight]);
 
+    // Очистка устаревших данных вне viewport
     useEffect(() => {
-        if (isInitialized) {
-            loadVisibleData();
-        }
-    }, [isInitialized, loadVisibleData]);
+        const cleanup = () => {
+            if (viewportData.size === 0) return;
 
+            const keepDates = new Set(viewportData);
+            const currentRawDataKeys = Object.keys(rawData);
+            const currentProcessedDataKeys = Object.keys(processedData);
+
+            // Очищаем сырые данные
+            const shouldCleanRaw = currentRawDataKeys.some(date => !keepDates.has(date));
+            if (shouldCleanRaw) {
+                setRawData(prev => {
+                    const filtered = {};
+                    Object.keys(prev).forEach(date => {
+                        if (keepDates.has(date)) {
+                            filtered[date] = prev[date];
+                        }
+                    });
+                    return filtered;
+                });
+            }
+
+            // Очищаем обработанные данные
+            const shouldCleanProcessed = currentProcessedDataKeys.some(date => !keepDates.has(date));
+            if (shouldCleanProcessed) {
+                setProcessedData(prev => {
+                    const filtered = {};
+                    Object.keys(prev).forEach(date => {
+                        if (keepDates.has(date)) {
+                            filtered[date] = prev[date];
+                        }
+                    });
+                    return filtered;
+                });
+            }
+        };
+
+        const interval = setInterval(cleanup, 3000);
+        return () => clearInterval(interval);
+    }, [viewportData, rawData, processedData]);
+
+    // Очистка при размонтировании
     useEffect(() => {
         return () => {
-            if (pendingRecalculation.current) {
-                clearTimeout(pendingRecalculation.current);
+            if (refreshTimer.current) {
+                clearTimeout(refreshTimer.current);
             }
+            Object.keys(fetchingPromises.current).forEach(key => {
+                delete fetchingPromises.current[key];
+            });
         };
     }, []);
 
-    useEffect(() => {
-        const cleanup = () => {
-            const { start, end } = visibleRange;
-            const keepRange = bufferSize * 3;
-            const keepStart = Math.max(0, start - keepRange);
-            const keepEnd = Math.min(dates.length, end + keepRange);
-
-            const keepDates = new Set();
-            for (let i = keepStart; i < keepEnd; i++) {
-                if (dates[i]) keepDates.add(dates[i]);
-            }
-
-            setDataCache(prev => {
-                const filtered = {};
-                Object.keys(prev).forEach(date => {
-                    if (keepDates.has(date)) {
-                        filtered[date] = prev[date];
-                    }
-                });
-                return Object.keys(filtered).length !== Object.keys(prev).length ? filtered : prev;
-            });
-
-            setProcessedCache(prev => {
-                const filtered = {};
-                Object.keys(prev).forEach(date => {
-                    if (keepDates.has(date)) {
-                        filtered[date] = prev[date];
-                    }
-                });
-                return Object.keys(filtered).length !== Object.keys(prev).length ? filtered : prev;
-            });
-        };
-
-        const interval = setInterval(cleanup, 5000);
-        return () => clearInterval(interval);
-    }, [visibleRange, dates, bufferSize]);
-
     const { start: startIndex, end: endIndex } = visibleRange;
     const visibleDates = dates.slice(startIndex, endIndex);
-    const paddingTop = startIndex * rowHeight;
-    const paddingBottom = Math.max(0, (dates.length - endIndex) * rowHeight);
+    const paddingTop = startIndex * dynamicRowHeight;
+    const paddingBottom = Math.max(0, (dates.length - endIndex) * dynamicRowHeight);
 
     return (
         <>
@@ -1049,225 +1033,341 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
             {showFilters && (
                 <div style={{
                     border: '1px solid #ddd',
-                    borderRadius: '8px',
-                    padding: '16px',
+                    borderRadius: '4px',
                     marginBottom: '16px',
-                    backgroundColor: '#f9f9f9',
-                    maxHeight: '400px',
-                    overflowY: 'auto'
+                    backgroundColor: 'white',
+                    fontFamily: 'Arial, sans-serif'
                 }}>
-                    <div style={{ marginBottom: '16px', fontWeight: 'bold', fontSize: '16px' }}>
-                        Настройки отображения
+                    <div style={{
+                        padding: '12px 16px',
+                        borderBottom: '1px solid #e0e0e0',
+                        backgroundColor: '#f8f9fa',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span style={{ fontWeight: '500', color: '#666' }}>Найти по названию</span>
+                            <input
+                                type="text"
+                                placeholder=""
+                                style={{
+                                    padding: '6px 12px',
+                                    border: '1px solid #ddd',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#f5f5f5',
+                                    fontSize: '14px',
+                                    width: '300px'
+                                }}
+                            />
+                        </div>
+                        <button
+                            onClick={() => setShowFilters(false)}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                fontSize: '18px',
+                                cursor: 'pointer',
+                                color: '#666',
+                                padding: '4px'
+                            }}
+                        >
+                            ✕
+                        </button>
                     </div>
 
-                    {renderGroupOrder.map(groupName => (
-                        <div key={groupName} style={{ marginBottom: '8px', border: '1px solid #e0e0e0', borderRadius: '4px', backgroundColor: 'white' }}>
-                            {/* Заголовок группы */}
-                            <div
-                                onClick={() => toggleGroupExpansion(groupName)}
-                                style={{
-                                    display: 'flex',
+                    <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: '120px 140px auto 150px',
+                            padding: '8px 16px',
+                            backgroundColor: '#f8f9fa',
+                            borderBottom: '1px solid #e0e0e0',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            color: '#666'
+                        }}>
+                            <div>Отобразить в плане</div>
+                            <div>Отобразить наработку</div>
+                            <div></div>
+                            <div style={{ textAlign: 'center' }}>раскрыть всё / свернуть всё</div>
+                        </div>
+
+                        {groupOrder.map(groupName => (
+                            <div key={groupName}>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '120px 140px auto 150px',
+                                    padding: '8px 16px',
                                     alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    padding: '12px 16px',
-                                    cursor: 'pointer',
-                                    backgroundColor: '#f8f9fa',
-                                    borderBottom: expandedGroups.has(groupName) ? '1px solid #e0e0e0' : 'none',
-                                    borderRadius: expandedGroups.has(groupName) ? '4px 4px 0 0' : '4px'
-                                }}
-                            >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <span style={{
-                                        fontSize: '16px',
-                                        transform: expandedGroups.has(groupName) ? 'rotate(90deg)' : 'rotate(0deg)',
-                                        transition: 'transform 0.2s ease'
-                                    }}>
-                                        ▶
-                                    </span>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: '600' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={groupVisibility[groupName] || false}
-                                            onChange={(e) => {
-                                                e.stopPropagation();
-                                                setGroupVisibility(prev => ({
-                                                    ...prev,
-                                                    [groupName]: e.target.checked
-                                                }));
+                                    borderBottom: '1px solid #f0f0f0',
+                                    backgroundColor: 'white'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                        <button
+                                            onClick={() => setGroupVisibility(prev => ({
+                                                ...prev,
+                                                [groupName]: !prev[groupName]
+                                            }))}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                padding: '4px',
+                                                color: groupVisibility[groupName] ? '#007bff' : '#ccc'
                                             }}
-                                        />
-                                        {groupName}
-                                    </label>
+                                        >
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                        <button
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                padding: '4px',
+                                                color: '#ccc'
+                                            }}
+                                        >
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <button
+                                            onClick={() => toggleGroupExpansion(groupName)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                padding: '2px',
+                                                color: '#666'
+                                            }}
+                                        >
+                                            <span style={{
+                                                fontSize: '12px',
+                                                transform: expandedGroups.has(groupName) ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                transition: 'transform 0.2s ease',
+                                                display: 'inline-block'
+                                            }}>
+                                                ▶
+                                            </span>
+                                        </button>
+                                        <span style={{ fontSize: '14px', fontWeight: '500' }}>
+                                            {groupName}
+                                        </span>
+                                    </div>
+
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        gap: '4px'
+                                    }}>
+                                        <button
+                                            onClick={() => toggleAllElementsInGroup(groupName, true)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                color: '#666',
+                                                fontSize: '12px',
+                                                padding: '2px 4px'
+                                            }}
+                                        >
+                                            раскрыть всё
+                                        </button>
+                                        <span style={{ color: '#ddd', fontSize: '12px' }}>/</span>
+                                        <button
+                                            onClick={() => toggleAllElementsInGroup(groupName, false)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                color: '#666',
+                                                fontSize: '12px',
+                                                padding: '2px 4px'
+                                            }}
+                                        >
+                                            свернуть всё
+                                        </button>
+                                    </div>
                                 </div>
 
-                                {groupVisibility[groupName] && renderHeaderStructure[groupName] && (
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                toggleAllElementsInGroup(groupName, true);
-                                            }}
-                                            style={{
-                                                padding: '4px 8px',
-                                                fontSize: '12px',
-                                                backgroundColor: '#28a745',
-                                                color: 'white',
-                                                border: 'none',
-                                                borderRadius: '3px',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Все
-                                        </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                toggleAllElementsInGroup(groupName, false);
-                                            }}
-                                            style={{
-                                                padding: '4px 8px',
-                                                fontSize: '12px',
-                                                backgroundColor: '#dc3545',
-                                                color: 'white',
-                                                border: 'none',
-                                                borderRadius: '3px',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Никого
-                                        </button>
+                                {expandedGroups.has(groupName) && headerStructure[groupName] && (
+                                    <div>
+                                        {headerStructure[groupName].map(element => (
+                                            <div key={element}>
+                                                <div style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: '120px 140px auto 150px',
+                                                    padding: '6px 16px',
+                                                    alignItems: 'center',
+                                                    borderBottom: '1px solid #f8f8f8',
+                                                    backgroundColor: '#fafafa',
+                                                    marginLeft: '20px'
+                                                }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                                        <button
+                                                            onClick={() => setElementVisibility(prev => ({
+                                                                ...prev,
+                                                                [element]: !prev[element]
+                                                            }))}
+                                                            style={{
+                                                                background: 'none',
+                                                                border: 'none',
+                                                                cursor: 'pointer',
+                                                                padding: '4px',
+                                                                color: elementVisibility[element] ? '#007bff' : '#ccc'
+                                                            }}
+                                                        >
+                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                                                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                                        <button
+                                                            style={{
+                                                                background: 'none',
+                                                                border: 'none',
+                                                                cursor: 'pointer',
+                                                                padding: '4px',
+                                                                color: '#ccc'
+                                                            }}
+                                                        >
+                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                                                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        {groupName !== "Работающие агрегаты" && (
+                                                            <button
+                                                                onClick={() => toggleElementExpansion(element)}
+                                                                style={{
+                                                                    background: 'none',
+                                                                    border: 'none',
+                                                                    cursor: 'pointer',
+                                                                    padding: '2px',
+                                                                    color: '#666'
+                                                                }}
+                                                            >
+                                                                <span style={{
+                                                                    fontSize: '10px',
+                                                                    transform: expandedElements.has(element) ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                                    transition: 'transform 0.2s ease',
+                                                                    display: 'inline-block'
+                                                                }}>
+                                                                    ▶
+                                                                </span>
+                                                            </button>
+                                                        )}
+                                                        <span style={{ fontSize: '13px' }}>
+                                                            {element}
+                                                        </span>
+                                                    </div>
+
+                                                    <div></div>
+                                                </div>
+                                                {groupName !== "Работающие агрегаты" &&
+                                                    expandedElements.has(element) &&
+                                                    elementVisibility[element] &&
+                                                    componentVisibility[element] && (
+                                                        <div>
+                                                            {Object.entries(componentVisibility[element]).map(([componentKey, isVisible]) => (
+                                                                <div key={componentKey} style={{
+                                                                    display: 'grid',
+                                                                    gridTemplateColumns: '120px 140px auto 150px',
+                                                                    padding: '4px 16px',
+                                                                    alignItems: 'center',
+                                                                    borderBottom: '1px solid #f8f8f8',
+                                                                    backgroundColor: '#f8f8f8',
+                                                                    marginLeft: '40px'
+                                                                }}>
+                                                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                                                        <button
+                                                                            onClick={() => setComponentVisibility(prev => ({
+                                                                                ...prev,
+                                                                                [element]: {
+                                                                                    ...prev[element],
+                                                                                    [componentKey]: !isVisible
+                                                                                }
+                                                                            }))}
+                                                                            style={{
+                                                                                background: 'none',
+                                                                                border: 'none',
+                                                                                cursor: 'pointer',
+                                                                                padding: '4px',
+                                                                                color: isVisible ? '#007bff' : '#ccc'
+                                                                            }}
+                                                                        >
+                                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                                                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                                                            </svg>
+                                                                        </button>
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                                                        <button
+                                                                            style={{
+                                                                                background: 'none',
+                                                                                border: 'none',
+                                                                                cursor: 'pointer',
+                                                                                padding: '4px',
+                                                                                color: '#ccc'
+                                                                            }}
+                                                                        >
+                                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                                                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                                                            </svg>
+                                                                        </button>
+                                                                    </div>
+                                                                    <div style={{
+                                                                        paddingLeft: '24px',
+                                                                        fontSize: '12px',
+                                                                        color: '#666'
+                                                                    }}>
+                                                                        {componentKey}
+                                                                    </div>
+                                                                    <div></div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </div>
-
-                            {/* Содержимое группы */}
-                            {expandedGroups.has(groupName) && groupVisibility[groupName] && renderHeaderStructure[groupName] && (
-                                <div style={{ padding: '8px 16px 16px 16px' }}>
-                                    {renderHeaderStructure[groupName].map(element => (
-                                        <div key={element} style={{ marginBottom: '8px', marginLeft: '20px' }}>
-                                            {/* Элемент */}
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    {groupName !== "Работающие агрегаты" && (
-                                                        <span
-                                                            onClick={() => toggleElementExpansion(element)}
-                                                            style={{
-                                                                fontSize: '14px',
-                                                                cursor: 'pointer',
-                                                                transform: expandedElements.has(element) ? 'rotate(90deg)' : 'rotate(0deg)',
-                                                                transition: 'transform 0.2s ease',
-                                                                color: '#666'
-                                                            }}
-                                                        >
-                                                            ▶
-                                                        </span>
-                                                    )}
-                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={elementVisibility[element] || false}
-                                                            onChange={(e) => setElementVisibility(prev => ({
-                                                                ...prev,
-                                                                [element]: e.target.checked
-                                                            }))}
-                                                        />
-                                                        <span style={{ fontSize: '14px', fontWeight: '500' }}>{element}</span>
-                                                    </label>
-                                                </div>
-
-                                                {groupName !== "Работающие агрегаты" && elementVisibility[element] && componentVisibility[element] && (
-                                                    <div style={{ display: 'flex', gap: '6px' }}>
-                                                        <button
-                                                            onClick={() => toggleAllComponentsForElement(element, true)}
-                                                            style={{
-                                                                padding: '2px 6px',
-                                                                fontSize: '10px',
-                                                                backgroundColor: '#17a2b8',
-                                                                color: 'white',
-                                                                border: 'none',
-                                                                borderRadius: '2px',
-                                                                cursor: 'pointer'
-                                                            }}
-                                                        >
-                                                            Все компоненты
-                                                        </button>
-                                                        <button
-                                                            onClick={() => toggleAllComponentsForElement(element, false)}
-                                                            style={{
-                                                                padding: '2px 6px',
-                                                                fontSize: '10px',
-                                                                backgroundColor: '#6c757d',
-                                                                color: 'white',
-                                                                border: 'none',
-                                                                borderRadius: '2px',
-                                                                cursor: 'pointer'
-                                                            }}
-                                                        >
-                                                            Скрыть все
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Компоненты элемента */}
-                                            {groupName !== "Работающие агрегаты" &&
-                                                expandedElements.has(element) &&
-                                                elementVisibility[element] &&
-                                                componentVisibility[element] && (
-                                                    <div style={{
-                                                        marginLeft: '32px',
-                                                        paddingLeft: '12px',
-                                                        borderLeft: '2px solid #e9ecef',
-                                                        backgroundColor: '#f8f9fa',
-                                                        borderRadius: '0 4px 4px 0',
-                                                        padding: '8px 12px'
-                                                    }}>
-                                                        <div style={{ marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: '#6c757d' }}>
-                                                            Компоненты наработки:
-                                                        </div>
-                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                                            {Object.entries(componentVisibility[element]).map(([componentKey, isVisible]) => (
-                                                                <label key={componentKey} style={{
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    gap: '4px',
-                                                                    cursor: 'pointer',
-                                                                    padding: '4px 8px',
-                                                                    backgroundColor: isVisible ? '#e3f2fd' : '#f5f5f5',
-                                                                    borderRadius: '12px',
-                                                                    border: `1px solid ${isVisible ? '#90caf9' : '#e0e0e0'}`,
-                                                                    fontSize: '12px',
-                                                                    transition: 'all 0.2s ease'
-                                                                }}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={isVisible}
-                                                                        onChange={(e) => setComponentVisibility(prev => ({
-                                                                            ...prev,
-                                                                            [element]: {
-                                                                                ...prev[element],
-                                                                                [componentKey]: e.target.checked
-                                                                            }
-                                                                        }))}
-                                                                        style={{ margin: 0 }}
-                                                                    />
-                                                                    <span style={{
-                                                                        fontWeight: '500',
-                                                                        color: isVisible ? '#1976d2' : '#666'
-                                                                    }}>
-                                                                    {componentKey}
-                                                                </span>
-                                                                </label>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                        ))}
+                    </div>
+                    <div style={{
+                        padding: '12px 16px',
+                        borderTop: '1px solid #e0e0e0',
+                        backgroundColor: '#f8f9fa',
+                        display: 'flex',
+                        justifyContent: 'flex-end'
+                    }}>
+                        <button
+                            onClick={() => setShowFilters(false)}
+                            style={{
+                                padding: '8px 20px',
+                                backgroundColor: '#007bff',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '14px'
+                            }}
+                        >
+                            Применить
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -1359,17 +1459,19 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                     )}
 
                     {visibleDates.map((dateString, index) => {
-                        const processedRow = processedCache[dateString];
-                        const isLoading = !processedRow;
+                        const processedRow = processedData[dateString];
+                        const isLoading = loadingDates.has(dateString) || !processedRow;
                         const rowDate = parseDateString(dateString);
                         const isPastDate = rowDate.getTime() < today.getTime();
+                        const isStale = needsRefresh.has(dateString);
 
                         return (
                             <tr
                                 key={`${dateString}-${startIndex + index}`}
                                 style={{
-                                    height: `${rowHeight}px`,
+                                    height: `${dynamicRowHeight}px`,
                                     backgroundColor: isLoading ? 'transparent' : activeColorTheme("DATE", isPastDate),
+                                    opacity: isStale ? 0.7 : 1,
                                 }}
                             >
                                 <td style={{
@@ -1380,8 +1482,21 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                                     fontSize: '14px',
                                     fontWeight: 'normal',
                                     color: isPastDate ? '#666' : 'inherit',
+                                    position: 'relative'
                                 }}>
                                     {dateString}
+                                    {isStale && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '2px',
+                                            right: '2px',
+                                            width: '6px',
+                                            height: '6px',
+                                            borderRadius: '50%',
+                                            backgroundColor: '#ff9800',
+                                            opacity: 0.7
+                                        }} />
+                                    )}
                                 </td>
 
                                 {filteredGroupOrder.map((groupName, groupIndex) => (
@@ -1419,7 +1534,8 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                                                     verticalAlign: 'middle',
                                                     borderLeft: keyIndex === 0 && groupIndex > 0 ? '2px solid #fff' : 'none',
                                                     borderRight: '1px solid #ddd',
-                                                    fontWeight: 'normal'
+                                                    fontWeight: 'normal',
+                                                    position: 'relative'
                                                 }}
                                             >
                                                 {isLoading ? (
@@ -1433,7 +1549,21 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                                                         margin: 'auto',
                                                     }} />
                                                 ) : (
-                                                    cellValue
+                                                    <>
+                                                        {cellValue}
+                                                        {isStale && (
+                                                            <div style={{
+                                                                position: 'absolute',
+                                                                top: '2px',
+                                                                right: '2px',
+                                                                width: '4px',
+                                                                height: '4px',
+                                                                borderRadius: '50%',
+                                                                backgroundColor: '#ff9800',
+                                                                opacity: 0.6
+                                                            }} />
+                                                        )}
+                                                    </>
                                                 )}
                                             </td>
                                         );
@@ -1477,19 +1607,22 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', colorTheme, scro
                 <span><strong>Видимые строки:</strong> {visibleDates.length}</span>
                 <span><strong>Диапазон:</strong> {startIndex}-{endIndex}</span>
                 <span><strong>Всего дат:</strong> {dates.length}</span>
-                <span><strong>В кэше сырых данных:</strong> {Object.keys(dataCache).length}</span>
-                <span><strong>В кэше обработанных:</strong> {Object.keys(processedCache).length}</span>
-                <span><strong>Загружается батчей:</strong> {loadingBatches.size}</span>
+                <span><strong>В сырых данных:</strong> {Object.keys(rawData).length}</span>
+                <span><strong>В обработанных данных:</strong> {Object.keys(processedData).length}</span>
+                <span><strong>В viewport:</strong> {viewportData.size}</span>
+                <span><strong>Загружается:</strong> {loadingDates.size}</span>
+                <span><strong>Требует обновления:</strong> {needsRefresh.size}</span>
                 <span><strong>Размер батча:</strong> {scrollBatchSize} дней</span>
+                <span><strong>Интервал обновления:</strong> {refreshInterval / 1000}s</span>
                 <span><strong>Скорость скролла:</strong> {scrollVelocity.current.toFixed(2)}</span>
                 <span><strong>Компенсация скролла:</strong> {isScrollCompensating.current ? 'Да' : 'Нет'}</span>
                 <span><strong>Показать часы работы:</strong> {showWorkHours ? 'Да' : 'Нет'}</span>
                 <span><strong>Фильтры открыты:</strong> {showFilters ? 'Да' : 'Нет'}</span>
                 <span><strong>Видимых групп:</strong> {filteredGroupOrder.length}</span>
-                <span><strong>Всего групп:</strong> {renderGroupOrder.length}</span>
-                <span><strong>Компонентных фильтров:</strong> {Object.keys(componentVisibility).length}</span>
+                <span><strong>Всего групп:</strong> {groupOrder.length}</span>
                 <span><strong>Развернутых групп:</strong> {expandedGroups.size}</span>
                 <span><strong>Развернутых элементов:</strong> {expandedElements.size}</span>
+                <span><strong>Активных запросов:</strong> {Object.keys(fetchingPromises.current).length}</span>
             </div>}
         </>
     );
