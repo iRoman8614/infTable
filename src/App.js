@@ -1,4 +1,6 @@
 import {Table} from "./component/table";
+import HierarchyTable from "./component/HierarchyTable/HierarchyTable";
+import TableHeader from "./component/HierarchyTable/HierarchyTable";
 
 /**
  * Возвращает цвет фона для ячейки таблицы в зависимости от значения стадии.
@@ -24,7 +26,8 @@ const getStageColor = (stageValue, isPastDate) => {
 function App() {
     return (
         <main style={{width: "100%"}}>
-            <Table maxWidth={'1200px'} maxHeight={'600px'} colorTheme={getStageColor}  debug={true} />
+            <Table maxWidth={'1200px'} maxHeight={'600px'} colorTheme={getStageColor}  debug={false} />
+            <TableHeader />
         </main>
     )
 }
