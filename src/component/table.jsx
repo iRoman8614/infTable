@@ -1,245 +1,24 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
-const headers = {
-    "headers": [
-        {
-            "id": "factory1",
-            "parentId": null,
-            "type": "node",
-            "name": "Завод №1 'Металлург'",
-            "metadata": {
-                "color": "#2196f3",
-                "tooltip": "Основной производственный комплекс",
-                "link": "/factories/factory1",
-                "subtype": "production_facility",
-                "workCount": 150
-            }
-        },
-        {
-            "id": "workshop1",
-            "parentId": "factory1",
-            "type": "assembly",
-            "name": "Цех сборки №1",
-            "metadata": {
-                "color": "#4caf50",
-                "tooltip": "Основной сборочный цех",
-                "link": "/workshops/workshop1",
-                "subtype": "assembly_line",
-                "workCount": 45
-            }
-        },
-        {
-            "id": "line1",
-            "parentId": "workshop1",
-            "type": "component",
-            "name": "Линия А",
-            "metadata": {
-                "color": "#ff9800",
-                "tooltip": "Автоматизированная линия сборки",
-                "link": "/lines/line1",
-                "subtype": "automated_line",
-                "workCount": 15
-            }
-        },
-        {
-            "id": "station1",
-            "parentId": "line1",
-            "type": "component",
-            "name": "Станция 1",
-            "metadata": {
-                "color": "#f44336",
-                "tooltip": "Начальная станция сборки",
-                "link": "/stations/station1",
-                "subtype": "assembly_station",
-                "workCount": 3
-            }
-        },
-        {
-            "id": "station2",
-            "parentId": "line1",
-            "type": "component",
-            "name": "Станция 2",
-            "metadata": {
-                "color": "#f44336",
-                "tooltip": "Промежуточная станция",
-                "link": "/stations/station2",
-                "subtype": "assembly_station",
-                "workCount": 4
-            }
-        },
-        {
-            "id": "line2",
-            "parentId": "workshop1",
-            "type": "component",
-            "name": "Линия Б",
-            "metadata": {
-                "color": "#ff9800",
-                "tooltip": "Полуавтоматическая линия",
-                "link": "/lines/line2",
-                "subtype": "semi_automated_line",
-                "workCount": 12
-            }
-        },
-        {
-            "id": "station3",
-            "parentId": "line2",
-            "type": "component",
-            "name": "Станция 3",
-            "metadata": {
-                "color": "#f44336",
-                "tooltip": "Контрольная станция",
-                "link": "/stations/station3",
-                "subtype": "control_station",
-                "workCount": 2
-            }
-        },
-        {
-            "id": "workshop2",
-            "parentId": "factory1",
-            "type": "assembly",
-            "name": "Цех механообработки",
-            "metadata": {
-                "color": "#4caf50",
-                "tooltip": "Цех механической обработки деталей",
-                "link": "/workshops/workshop2",
-                "subtype": "machining_shop",
-                "workCount": 65
-            }
-        },
-        {
-            "id": "section1",
-            "parentId": "workshop2",
-            "type": "component",
-            "name": "Участок токарных работ",
-            "metadata": {
-                "color": "#9c27b0",
-                "tooltip": "Участок токарной обработки",
-                "link": "/sections/section1",
-                "subtype": "turning_section",
-                "workCount": 25
-            }
-        },
-        {
-            "id": "machine1",
-            "parentId": "section1",
-            "type": "component",
-            "name": "Станок ЧПУ-1",
-            "metadata": {
-                "color": "#795548",
-                "tooltip": "Токарный станок с ЧПУ",
-                "link": "/machines/machine1",
-                "subtype": "cnc_lathe",
-                "workCount": 1
-            }
-        },
-        {
-            "id": "warehouse1",
-            "parentId": "factory1",
-            "type": "node",
-            "name": "Склад готовой продукции",
-            "metadata": {
-                "color": "#607d8b",
-                "tooltip": "Основной склад готовых изделий",
-                "link": "/warehouses/warehouse1",
-                "subtype": "finished_goods_warehouse",
-                "workCount": 8
-            }
-        },
-        {
-            "id": "factory2",
-            "parentId": null,
-            "type": "node",
-            "name": "Завод №2 'Электрон'",
-            "metadata": {
-                "color": "#3f51b5",
-                "tooltip": "Завод электронных компонентов",
-                "link": "/factories/factory2",
-                "subtype": "electronics_facility",
-                "workCount": 120
-            }
-        },
-        {
-            "id": "workshop3",
-            "parentId": "factory2",
-            "type": "assembly",
-            "name": "Цех печатных плат",
-            "metadata": {
-                "color": "#00bcd4",
-                "tooltip": "Производство печатных плат",
-                "link": "/workshops/workshop3",
-                "subtype": "pcb_workshop",
-                "workCount": 35
-            }
-        },
-        {
-            "id": "cleanroom1",
-            "parentId": "workshop3",
-            "type": "component",
-            "name": "Чистая комната класса 7",
-            "metadata": {
-                "color": "#e91e63",
-                "tooltip": "Помещение для высокоточных операций",
-                "link": "/cleanrooms/cleanroom1",
-                "subtype": "cleanroom",
-                "workCount": 8
-            }
-        },
-        {
-            "id": "equipment1",
-            "parentId": "cleanroom1",
-            "type": "component",
-            "name": "Установка пайки SMD",
-            "metadata": {
-                "color": "#ff5722",
-                "tooltip": "Автоматическая установка поверхностного монтажа",
-                "link": "/equipment/equipment1",
-                "subtype": "smd_equipment",
-                "workCount": 2
-            }
-        },
-        {
-            "id": "workshop4",
-            "parentId": "factory2",
-            "type": "assembly",
-            "name": "Цех тестирования",
-            "metadata": {
-                "color": "#8bc34a",
-                "tooltip": "Отдел контроля качества",
-                "link": "/workshops/workshop4",
-                "subtype": "testing_department",
-                "workCount": 25
-            }
-        },
-        {
-            "id": "testlab1",
-            "parentId": "workshop4",
-            "type": "component",
-            "name": "Лаборатория №1",
-            "metadata": {
-                "color": "#cddc39",
-                "tooltip": "Лаборатория функционального тестирования",
-                "link": "/labs/testlab1",
-                "subtype": "functional_lab",
-                "workCount": 12
-            }
-        },
-        {
-            "id": "teststand1",
-            "parentId": "testlab1",
-            "type": "component",
-            "name": "Стенд автотестов",
-            "metadata": {
-                "color": "#ffc107",
-                "tooltip": "Автоматизированный тестовый стенд",
-                "link": "/teststands/teststand1",
-                "subtype": "automated_test_stand",
-                "workCount": 3
-            }
-        }
-    ]
-};
+/**
+ * ENHANCED VIRTUALIZED TABLE COMPONENT
+ *
+ * Высокопроизводительная виртуализированная таблица с поддержкой:
+ * - Бесконечного скролла (infinite scroll)
+ * - Динамической загрузки данных батчами
+ * - Иерархических заголовков через headerProvider
+ * - Системы фильтрации и поиска колонок
+ * - Объединения ячеек (rowspan) для одинаковых значений
+ * - Кастомных цветовых тем
+ * - Отладочной информации
+ *
+ * @version 3.0.0
+ * @author Enhanced Version
+ */
 
-// Утилиты
+/**
+ * Утилиты для работы с датами
+ */
 const formatDate = (date) => {
     return date.toLocaleDateString('ru-RU', {
         day: '2-digit',
@@ -253,28 +32,293 @@ const parseDateString = (dateString) => {
     return new Date(Date.UTC(year, month - 1, day));
 };
 
-// Имитация загрузки данных
-const fetchBatchData = async (startDate, days) => {
+// Экспортируем утилиты глобально
+if (typeof window !== 'undefined') {
+    window.TableUtils = {
+        parseDateString,
+        formatDate
+    };
+}
+
+/**
+ * Дефолтный набор заголовков для демонстрации
+ */
+const defaultHeaders = {
+    "headers": [
+        {
+            "id": "factory1",
+            "parentId": null,
+            "type": "node",
+            "name": "Завод №1 'Металлург'",
+            "metadata": {
+                "color": "#2196f3",
+                "tooltip": "Основной производственный комплекс",
+                "workCount": 150
+            }
+        },
+        {
+            "id": "workshop1",
+            "parentId": "factory1",
+            "type": "assembly",
+            "name": "Цех сборки №1",
+            "metadata": {
+                "color": "#4caf50",
+                "tooltip": "Основной сборочный цех",
+                "workCount": 45
+            }
+        },
+        {
+            "id": "line1",
+            "parentId": "workshop1",
+            "type": "component",
+            "name": "Линия А",
+            "metadata": {
+                "color": "#ff9800",
+                "tooltip": "Автоматизированная линия сборки",
+                "workCount": 15
+            }
+        },
+        {
+            "id": "station1",
+            "parentId": "line1",
+            "type": "component",
+            "name": "Станция 1",
+            "metadata": {
+                "color": "#f44336",
+                "tooltip": "Начальная станция сборки",
+                "workCount": 3
+            }
+        },
+        {
+            "id": "station2",
+            "parentId": "line1",
+            "type": "component",
+            "name": "Станция 2",
+            "metadata": {
+                "color": "#f44336",
+                "tooltip": "Промежуточная станция",
+                "workCount": 4
+            }
+        },
+        {
+            "id": "line2",
+            "parentId": "workshop1",
+            "type": "component",
+            "name": "Линия Б",
+            "metadata": {
+                "color": "#ff9800",
+                "tooltip": "Полуавтоматическая линия",
+                "workCount": 12
+            }
+        },
+        {
+            "id": "station3",
+            "parentId": "line2",
+            "type": "component",
+            "name": "Станция 3",
+            "metadata": {
+                "color": "#f44336",
+                "tooltip": "Контрольная станция",
+                "workCount": 2
+            }
+        },
+        {
+            "id": "workshop2",
+            "parentId": "factory1",
+            "type": "assembly",
+            "name": "Цех механообработки",
+            "metadata": {
+                "color": "#4caf50",
+                "tooltip": "Цех механической обработки деталей",
+                "workCount": 65
+            }
+        },
+        {
+            "id": "section1",
+            "parentId": "workshop2",
+            "type": "component",
+            "name": "Участок токарных работ",
+            "metadata": {
+                "color": "#9c27b0",
+                "tooltip": "Участок токарной обработки",
+                "workCount": 25
+            }
+        },
+        {
+            "id": "machine1",
+            "parentId": "section1",
+            "type": "component",
+            "name": "Станок ЧПУ-1",
+            "metadata": {
+                "color": "#795548",
+                "tooltip": "Токарный станок с ЧПУ",
+                "workCount": 1
+            }
+        }
+    ]
+};
+
+/**
+ * Интерфейс для провайдера данных
+ */
+let customDataProvider = null;
+
+/**
+ * Дефолтный провайдер данных - заполняет все ячейки буквой "М"
+ */
+const defaultDataProvider = async (startDate, days, leafNodes) => {
+    console.log(`[EnhancedTable] Загружаем батч: ${startDate} (+${days} дней), листовых узлов: ${leafNodes.length}`);
     await new Promise(resolve => setTimeout(resolve, 300));
+
     const startDateObj = parseDateString(startDate);
     const batchData = [];
+
+    // Возможные значения статусов
+    const statusValues = ["М", "О", "П", "ПР", "Р"];
+    const randomStatus = () => statusValues[Math.floor(Math.random() * statusValues.length)];
 
     for (let i = 0; i < days; i++) {
         const currentDate = new Date(startDateObj);
         currentDate.setUTCDate(startDateObj.getUTCDate() + i);
-        batchData.push({
+
+        const dayData = {
             date: formatDate(currentDate),
             timestamp: Date.now()
+        };
+
+        // Заполняем данные для всех листовых узлов
+        leafNodes.forEach(node => {
+            // По умолчанию "М", но иногда случайные статусы для разнообразия
+            dayData[node.id] = Math.random() > 0.8 ? randomStatus() : 'М';
         });
+
+        batchData.push(dayData);
     }
+
     return { data: batchData };
 };
 
-export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) => {
+/**
+ * Обработка данных для таблицы с вычислением rowspan
+ */
+function processDataForTable(data, leafNodes) {
+    if (!data || data.length === 0 || !leafNodes.length) {
+        return { processedData: [], leafElements: [] };
+    }
+
+    const processedData = data.map(row => {
+        const processed = {
+            date: row.date,
+            elements: {}
+        };
+
+        leafNodes.forEach(node => {
+            processed.elements[node.id] = {
+                status: row[node.id] || 'М',
+                rowspan: 1,
+                displayed: true
+            };
+        });
+
+        return processed;
+    });
+
+    // Вычисляем rowspan для каждого элемента
+    leafNodes.forEach(node => {
+        let i = 0;
+        while (i < processedData.length) {
+            const currentRow = processedData[i];
+            const currentStatus = currentRow.elements[node.id]?.status;
+
+            // Для статусов 'М' и 'Р' не объединяем ячейки
+            if (currentStatus === 'М' || currentStatus === 'Р' || currentStatus === undefined) {
+                i++;
+                continue;
+            }
+
+            let spanCount = 1;
+            let j = i + 1;
+
+            // Ищем следующие строки с тем же статусом
+            while (j < processedData.length) {
+                const nextRow = processedData[j];
+                const nextStatus = nextRow.elements[node.id]?.status;
+
+                if (nextStatus === currentStatus) {
+                    spanCount++;
+                    nextRow.elements[node.id].displayed = false;
+                    j++;
+                } else {
+                    break;
+                }
+            }
+
+            if (spanCount > 1) {
+                currentRow.elements[node.id].rowspan = spanCount;
+            }
+            i = j;
+        }
+    });
+
+    return { processedData, leafElements: leafNodes.map(n => n.id) };
+}
+
+/**
+ * Throttle функция
+ */
+const smartThrottle = (func, limit) => {
+    let lastFunc;
+    let lastRan;
+    let lastArgs;
+
+    const throttled = function(...args) {
+        const context = this;
+        lastArgs = args;
+
+        if (!lastRan) {
+            func.apply(context, args);
+            lastRan = Date.now();
+        } else {
+            clearTimeout(lastFunc);
+            lastFunc = setTimeout(function() {
+                if ((Date.now() - lastRan) >= limit) {
+                    func.apply(context, lastArgs);
+                    lastRan = Date.now();
+                }
+            }, limit - (Date.now() - lastRan));
+        }
+    };
+
+    throttled.flush = function() {
+        clearTimeout(lastFunc);
+        if (lastArgs) {
+            func.apply(this, lastArgs);
+            lastRan = Date.now();
+        }
+    };
+
+    return throttled;
+};
+
+/**
+ * ОСНОВНОЙ КОМПОНЕНТ ТАБЛИЦЫ
+ */
+export const Table = ({
+                          maxWidth = '100%',
+                          maxHeight = '600px',
+                          colorTheme,
+                          scrollBatchSize = 7,
+                          debug = false,
+                          dataProvider = null,
+                          headerProvider = null,
+                          onDataLoad = null,
+                          onError = null
+                      }) => {
     // Основные состояния
     const [dates, setDates] = useState([]);
-    const [rawData, setRawData] = useState({});
-    const [loadingDates, setLoadingDates] = useState(new Set());
+    const [dataCache, setDataCache] = useState({});
+    const [processedCache, setProcessedCache] = useState({});
+    const [loadingBatches, setLoadingBatches] = useState(new Set());
     const [isInitialized, setIsInitialized] = useState(false);
 
     // Состояния для фильтров
@@ -290,21 +334,44 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
     // Refs
     const containerRef = useRef(null);
     const fetchingPromises = useRef({});
+    const scrollVelocity = useRef(0);
+    const lastScrollTime = useRef(0);
+    const lastScrollTop = useRef(0);
     const isScrollCompensating = useRef(false);
+    const pendingRecalculation = useRef(null);
 
     // Константы
+    const rowHeight = 40;
     const bufferSize = 20;
-    const scrollBatchSize = 7;
-    const dynamicRowHeight = 40;
 
+    // Сегодняшняя дата
     const today = useMemo(() => {
         const date = new Date();
         date.setUTCHours(0, 0, 0, 0);
         return date;
     }, []);
 
-    // Структура дерева - создается один раз
+    // Цветовая тема
+    const defaultColorTheme = useCallback((value, isPast) => {
+        if (value === "BGHeader") return '#dee3f5';
+        if (value === "DATE") return isPast ? '#acb5e3' : '#white';
+
+        switch (value) {
+            case 'М': return '#cdef8d';
+            case 'О': return '#ffce42';
+            case 'П': return '#86cb89';
+            case 'ПР': return '#4a86e8';
+            case 'Р': return 'white';
+            case 0: return isPast ? '#acb5e3' : 'white';
+            default: return isPast ? '#acb5e3' : 'white';
+        }
+    }, []);
+
+    const activeColorTheme = colorTheme || defaultColorTheme;
+
+    // Структура дерева заголовков
     const treeStructure = useMemo(() => {
+        const headers = headerProvider || defaultHeaders;
         const nodesMap = new Map();
         const tree = [];
 
@@ -344,16 +411,47 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
         tree.forEach(findLeaves);
 
         return { tree, maxDepth, leafNodes, nodesMap };
-    }, []);
+    }, [headerProvider]);
 
     // Инициализация видимости узлов
     useEffect(() => {
         const visibility = {};
-        headers.headers.forEach(header => {
-            visibility[header.id] = true;
-        });
+        const addNodeAndChildren = (node) => {
+            visibility[node.id] = true;
+            node.children.forEach(addNodeAndChildren);
+        };
+        treeStructure.tree.forEach(addNodeAndChildren);
         setNodeVisibility(visibility);
-    }, []);
+    }, [treeStructure]);
+
+    // Видимый диапазон
+    const visibleRange = useMemo(() => {
+        if (!containerHeight || dates.length === 0) {
+            return { start: 0, end: Math.max(dates.length, scrollBatchSize * 2) };
+        }
+
+        const visibleStart = Math.floor(scrollTop / rowHeight);
+        const visibleEnd = Math.ceil((scrollTop + containerHeight) / rowHeight);
+
+        const start = Math.max(0, visibleStart - bufferSize);
+        const end = Math.min(dates.length, visibleEnd + bufferSize);
+
+        return { start, end };
+    }, [scrollTop, containerHeight, dates.length, rowHeight, bufferSize, scrollBatchSize]);
+
+    // Генерация начальных дат
+    const generateInitialDates = useCallback(() => {
+        const initialDates = [];
+        const daysAround = Math.floor(scrollBatchSize * 4);
+
+        for (let i = -daysAround; i <= daysAround; i++) {
+            const date = new Date(today);
+            date.setUTCDate(today.getUTCDate() + i);
+            initialDates.push(formatDate(date));
+        }
+
+        return initialDates;
+    }, [today, scrollBatchSize]);
 
     // Функции для работы с деревом
     const getAllDescendants = useCallback((nodeId) => {
@@ -372,7 +470,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
     }, [treeStructure.nodesMap]);
 
     const isNodeFullyVisible = useCallback((nodeId) => {
-        // Проверяем видимость узла и всех его родителей
         let currentNodeId = nodeId;
         while (currentNodeId) {
             if (!nodeVisibility[currentNodeId]) return false;
@@ -390,24 +487,18 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
             newVisibility[nodeId] = newValue;
 
             if (!newValue) {
-                // Если скрываем узел, скрываем всех потомков
                 const descendants = getAllDescendants(nodeId);
                 descendants.forEach(id => {
                     newVisibility[id] = false;
                 });
             } else {
-                // Если показываем узел, показываем всех прямых потомков
-                // (но не потомков потомков, если они были скрыты отдельно)
                 const node = treeStructure.nodesMap.get(nodeId);
                 if (node && node.children) {
                     node.children.forEach(child => {
                         newVisibility[child.id] = true;
-                        // Рекурсивно показываем всех потомков, которые не были скрыты вручную
                         const showDescendantsRecursively = (n) => {
                             if (n.children) {
                                 n.children.forEach(childNode => {
-                                    // Показываем потомка только если он не был скрыт вручную
-                                    // (проверяем, что все его родители видимы)
                                     const shouldShow = () => {
                                         let currentId = childNode.parentId;
                                         while (currentId && currentId !== nodeId) {
@@ -480,6 +571,279 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
         return filterNodes(treeStructure.tree);
     }, [treeStructure.tree, searchTerm]);
 
+    // Загрузка батча данных
+    const loadBatch = useCallback(async (startDate, batchSize) => {
+        const batchKey = `${startDate}+${batchSize}`;
+
+        if (fetchingPromises.current[batchKey] || loadingBatches.has(batchKey)) {
+            return fetchingPromises.current[batchKey];
+        }
+
+        setLoadingBatches(prev => new Set([...prev, batchKey]));
+
+        const activeDataProvider = dataProvider || customDataProvider || defaultDataProvider;
+
+        const promise = activeDataProvider(startDate, batchSize, treeStructure.leafNodes)
+            .then(batchData => {
+                setDataCache(prev => {
+                    const updated = { ...prev };
+                    batchData.data.forEach(dayData => {
+                        updated[dayData.date] = dayData;
+                    });
+                    return updated;
+                });
+
+                if (onDataLoad) {
+                    onDataLoad(batchData.data, startDate, batchSize);
+                }
+
+                return batchData;
+            })
+            .catch(error => {
+                console.error('[EnhancedTable] Ошибка загрузки данных:', error);
+                if (onError) {
+                    onError(error, { startDate, batchSize });
+                }
+                throw error;
+            })
+            .finally(() => {
+                setLoadingBatches(prev => {
+                    const updated = new Set(prev);
+                    updated.delete(batchKey);
+                    return updated;
+                });
+                delete fetchingPromises.current[batchKey];
+            });
+
+        fetchingPromises.current[batchKey] = promise;
+        return promise;
+    }, [loadingBatches, dataProvider, treeStructure.leafNodes, onDataLoad, onError]);
+
+    // Пересчет rowspan
+    const scheduleRowspanRecalculation = useCallback(() => {
+        if (pendingRecalculation.current) {
+            clearTimeout(pendingRecalculation.current);
+        }
+
+        pendingRecalculation.current = setTimeout(() => {
+            if (!isScrollCompensating.current && scrollVelocity.current <= 0.3) {
+                const allAvailableDates = Object.keys(dataCache).sort((a, b) => parseDateString(a) - parseDateString(b));
+                const dataForProcessing = allAvailableDates.map(dateStr => dataCache[dateStr]).filter(Boolean);
+
+                if (dataForProcessing.length > 0) {
+                    const processed = processDataForTable(dataForProcessing, treeStructure.leafNodes);
+                    setProcessedCache(prev => {
+                        const updated = { ...prev };
+                        processed.processedData.forEach(processedRow => {
+                            updated[processedRow.date] = processedRow;
+                        });
+                        return updated;
+                    });
+                }
+            }
+            pendingRecalculation.current = null;
+        }, scrollVelocity.current > 1 ? 200 : 100);
+    }, [dataCache, treeStructure.leafNodes]);
+
+    // Загрузка видимых данных
+    const loadVisibleData = useCallback(async () => {
+        const { start, end } = visibleRange;
+        const visibleDates = dates.slice(start, end);
+        const missingDates = visibleDates.filter(date => !dataCache[date]);
+
+        if (missingDates.length === 0) return;
+
+        const batchesToLoad = [];
+        if (missingDates.length > 0) {
+            let currentBatchStart = missingDates[0];
+            let currentBatchLength = 1;
+
+            for (let i = 1; i < missingDates.length; i++) {
+                const prevDate = parseDateString(missingDates[i - 1]);
+                const currDate = parseDateString(missingDates[i]);
+                const daysDiff = (currDate - prevDate) / (1000 * 60 * 60 * 24);
+
+                if (daysDiff === 1 && currentBatchLength < scrollBatchSize) {
+                    currentBatchLength++;
+                } else {
+                    batchesToLoad.push({ startDate: currentBatchStart, length: currentBatchLength });
+                    currentBatchStart = missingDates[i];
+                    currentBatchLength = 1;
+                }
+            }
+            batchesToLoad.push({ startDate: currentBatchStart, length: currentBatchLength });
+        }
+
+        const loadPromises = batchesToLoad.map(batch =>
+            loadBatch(batch.startDate, scrollBatchSize)
+        );
+
+        await Promise.allSettled(loadPromises);
+        scheduleRowspanRecalculation();
+    }, [visibleRange, dates, dataCache, loadBatch, scrollBatchSize, scheduleRowspanRecalculation]);
+
+    // Расширение дат
+    const extendDates = useCallback(async (direction, isPreemptive = false) => {
+        const loadPromises = [];
+
+        if (direction === 'forward') {
+            const lastDate = dates[dates.length - 1];
+            if (!lastDate) return;
+
+            const lastDateObj = parseDateString(lastDate);
+            const newDates = [];
+            const extendSize = isPreemptive ? scrollBatchSize * 2 : scrollBatchSize;
+
+            for (let i = 1; i <= extendSize; i++) {
+                const date = new Date(lastDateObj);
+                date.setUTCDate(lastDateObj.getUTCDate() + i);
+                newDates.push(formatDate(date));
+            }
+
+            setDates(prev => [...prev, ...newDates]);
+
+            for (let i = 0; i < newDates.length; i += scrollBatchSize) {
+                const batchStart = newDates[i];
+                const batchSize = Math.min(scrollBatchSize, newDates.length - i);
+                loadPromises.push(loadBatch(batchStart, batchSize));
+            }
+
+            await Promise.allSettled(loadPromises);
+            scheduleRowspanRecalculation();
+
+        } else if (direction === 'backward') {
+            const firstDate = dates[0];
+            if (!firstDate) return;
+
+            const firstDateObj = parseDateString(firstDate);
+            const newDates = [];
+            const extendSize = isPreemptive ? scrollBatchSize * 2 : scrollBatchSize;
+
+            for (let i = extendSize; i >= 1; i--) {
+                const date = new Date(firstDateObj);
+                date.setUTCDate(firstDateObj.getUTCDate() - i);
+                newDates.push(formatDate(date));
+            }
+
+            if (containerRef.current) {
+                isScrollCompensating.current = true;
+
+                const currentScrollTop = containerRef.current.scrollTop;
+                const currentFirstVisibleIndex = Math.floor(currentScrollTop / rowHeight);
+                const scrollOffset = currentScrollTop % rowHeight;
+
+                setDates(prevDates => {
+                    const updatedDates = [...newDates, ...prevDates];
+
+                    requestAnimationFrame(() => {
+                        if (containerRef.current && isScrollCompensating.current) {
+                            const compensatedScrollTop = (currentFirstVisibleIndex + newDates.length) * rowHeight + scrollOffset;
+                            containerRef.current.scrollTop = compensatedScrollTop;
+                            setScrollTop(compensatedScrollTop);
+
+                            setTimeout(() => {
+                                isScrollCompensating.current = false;
+                            }, 50);
+                        }
+                    });
+
+                    return updatedDates;
+                });
+            } else {
+                setDates(prev => [...newDates, ...prev]);
+            }
+
+            for (let i = 0; i < newDates.length; i += scrollBatchSize) {
+                const batchStart = newDates[i];
+                const batchSize = Math.min(scrollBatchSize, newDates.length - i);
+                loadPromises.push(loadBatch(batchStart, batchSize));
+            }
+
+            await Promise.allSettled(loadPromises);
+
+            setTimeout(() => {
+                scheduleRowspanRecalculation();
+            }, 150);
+        }
+    }, [dates, scrollBatchSize, rowHeight, loadBatch, scheduleRowspanRecalculation]);
+
+    // Обработка скролла
+    const handleScrollImmediate = useCallback(async () => {
+        if (!containerRef.current || isScrollCompensating.current) return;
+
+        const container = containerRef.current;
+        const newScrollTop = container.scrollTop;
+        const newContainerHeight = container.clientHeight;
+        const scrollHeight = container.scrollHeight;
+        const currentTime = Date.now();
+
+        const timeDelta = currentTime - lastScrollTime.current;
+        const scrollDelta = newScrollTop - lastScrollTop.current;
+
+        if (timeDelta > 0) {
+            scrollVelocity.current = Math.abs(scrollDelta / timeDelta);
+        }
+
+        lastScrollTime.current = currentTime;
+        lastScrollTop.current = newScrollTop;
+
+        setScrollTop(newScrollTop);
+        setContainerHeight(newContainerHeight);
+
+        const baseThreshold = rowHeight * bufferSize;
+        const velocityMultiplier = Math.min(3, 1 + scrollVelocity.current * 2);
+        const dynamicThreshold = baseThreshold * velocityMultiplier;
+
+        const topThreshold = dynamicThreshold;
+        const bottomThreshold = scrollHeight - newContainerHeight - dynamicThreshold;
+
+        const needsTopExtension = newScrollTop <= topThreshold && dates.length > 0;
+        const needsBottomExtension = newScrollTop >= bottomThreshold && dates.length > 0;
+
+        const isHighVelocity = scrollVelocity.current > 1;
+        const preemptiveTopThreshold = topThreshold * 2;
+        const preemptiveBottomThreshold = scrollHeight - newContainerHeight - (dynamicThreshold * 2);
+
+        const promises = [];
+
+        if (needsTopExtension) {
+            promises.push(extendDates('backward', isHighVelocity));
+        }
+
+        if (needsBottomExtension) {
+            promises.push(extendDates('forward', isHighVelocity));
+        }
+
+        if (isHighVelocity) {
+            if (scrollDelta < 0 && newScrollTop <= preemptiveTopThreshold) {
+                promises.push(extendDates('backward', true));
+            } else if (scrollDelta > 0 && newScrollTop >= preemptiveBottomThreshold) {
+                promises.push(extendDates('forward', true));
+            }
+        }
+
+        if (promises.length > 0) {
+            await Promise.allSettled(promises);
+        }
+    }, [dates, extendDates, rowHeight, bufferSize]);
+
+    const handleScrollThrottled = useMemo(
+        () => smartThrottle(handleScrollImmediate, 8),
+        [handleScrollImmediate]
+    );
+
+    const handleScroll = useCallback(() => {
+        if (isScrollCompensating.current) return;
+
+        handleScrollThrottled();
+
+        if (scrollVelocity.current > 2) {
+            setTimeout(() => {
+                handleScrollThrottled.flush();
+            }, 50);
+        }
+    }, [handleScrollThrottled]);
+
     // Функция расчета colspan
     const calculateColspan = useCallback((node) => {
         if (node.children.length === 0) {
@@ -491,7 +855,6 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
     // Фильтрация видимых узлов для заголовка
     const filterVisibleNodes = useCallback((nodes) => {
         return nodes.filter(node => {
-            // Показываем узел если он видим или у него есть видимые потомки
             if (isNodeFullyVisible(node.id)) return true;
 
             const hasVisibleDescendants = (n) => {
@@ -508,214 +871,106 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
         }));
     }, [isNodeFullyVisible]);
 
-    // Viewport логика
-    const visibleRange = useMemo(() => {
-        if (!containerHeight || dates.length === 0) {
-            return { start: 0, end: Math.max(dates.length, scrollBatchSize * 2) };
-        }
+    // Получение значения ячейки
+    const getCellValue = useCallback((processedRow, nodeId) => {
+        return processedRow.elements && processedRow.elements[nodeId]
+            ? processedRow.elements[nodeId].status
+            : 'М';
+    }, []);
 
-        const visibleStart = Math.floor(scrollTop / dynamicRowHeight);
-        const visibleEnd = Math.ceil((scrollTop + containerHeight) / dynamicRowHeight);
-        const start = Math.max(0, visibleStart - bufferSize);
-        const end = Math.min(dates.length, visibleEnd + bufferSize);
-
-        return { start, end };
-    }, [scrollTop, containerHeight, dates.length, dynamicRowHeight, bufferSize, scrollBatchSize]);
-
-    const generateInitialDates = useCallback(() => {
-        const initialDates = [];
-        const daysAround = Math.floor(scrollBatchSize * 4);
-
-        for (let i = -daysAround; i <= daysAround; i++) {
-            const date = new Date(today);
-            date.setUTCDate(today.getUTCDate() + i);
-            initialDates.push(formatDate(date));
-        }
-        return initialDates;
-    }, [today, scrollBatchSize]);
-
-    // Загрузка данных
-    const loadDatesData = useCallback(async (datesToLoad) => {
-        if (datesToLoad.length === 0) return;
-
-        setLoadingDates(prev => new Set([...prev, ...datesToLoad]));
-
-        try {
-            const sortedDates = [...datesToLoad].sort((a, b) => parseDateString(a) - parseDateString(b));
-            const batches = [];
-            let currentBatch = [sortedDates[0]];
-
-            for (let i = 1; i < sortedDates.length; i++) {
-                const prevDate = parseDateString(sortedDates[i - 1]);
-                const currDate = parseDateString(sortedDates[i]);
-                const daysDiff = (currDate - prevDate) / (1000 * 60 * 60 * 24);
-
-                if (daysDiff === 1 && currentBatch.length < scrollBatchSize) {
-                    currentBatch.push(sortedDates[i]);
-                } else {
-                    batches.push(currentBatch);
-                    currentBatch = [sortedDates[i]];
-                }
-            }
-            batches.push(currentBatch);
-
-            const batchPromises = batches.map(async (batch) => {
-                const batchKey = `${batch[0]}_${batch.length}`;
-
-                if (!fetchingPromises.current[batchKey]) {
-                    fetchingPromises.current[batchKey] = fetchBatchData(batch[0], batch.length);
-                }
-
-                try {
-                    const result = await fetchingPromises.current[batchKey];
-                    return result.data;
-                } finally {
-                    delete fetchingPromises.current[batchKey];
-                }
-            });
-
-            const results = await Promise.allSettled(batchPromises);
-            const allNewData = {};
-
-            results.forEach(result => {
-                if (result.status === 'fulfilled') {
-                    result.value.forEach(dayData => {
-                        allNewData[dayData.date] = dayData;
-                    });
-                }
-            });
-
-            setRawData(prev => ({ ...prev, ...allNewData }));
-
-        } finally {
-            setLoadingDates(prev => {
-                const updated = new Set(prev);
-                datesToLoad.forEach(date => updated.delete(date));
-                return updated;
-            });
-        }
-    }, [scrollBatchSize]);
-
-    const extendDates = useCallback(async (direction) => {
-        if (direction === 'forward') {
-            const lastDate = dates[dates.length - 1];
-            if (!lastDate) return;
-
-            const lastDateObj = parseDateString(lastDate);
-            const newDates = [];
-            for (let i = 1; i <= scrollBatchSize; i++) {
-                const date = new Date(lastDateObj);
-                date.setUTCDate(lastDateObj.getUTCDate() + i);
-                newDates.push(formatDate(date));
-            }
-            setDates(prev => [...prev, ...newDates]);
-
-        } else if (direction === 'backward') {
-            const firstDate = dates[0];
-            if (!firstDate) return;
-
-            const firstDateObj = parseDateString(firstDate);
-            const newDates = [];
-            for (let i = scrollBatchSize; i >= 1; i--) {
-                const date = new Date(firstDateObj);
-                date.setUTCDate(firstDateObj.getUTCDate() - i);
-                newDates.push(formatDate(date));
-            }
-
-            if (containerRef.current) {
-                isScrollCompensating.current = true;
-                const currentScrollTop = containerRef.current.scrollTop;
-                const currentFirstVisibleIndex = Math.floor(currentScrollTop / dynamicRowHeight);
-                const scrollOffset = currentScrollTop % dynamicRowHeight;
-
-                setDates(prevDates => {
-                    const updatedDates = [...newDates, ...prevDates];
-                    requestAnimationFrame(() => {
-                        if (containerRef.current && isScrollCompensating.current) {
-                            const compensatedScrollTop = (currentFirstVisibleIndex + newDates.length) * dynamicRowHeight + scrollOffset;
-                            containerRef.current.scrollTop = compensatedScrollTop;
-                            setScrollTop(compensatedScrollTop);
-                            setTimeout(() => {
-                                isScrollCompensating.current = false;
-                            }, 50);
-                        }
-                    });
-                    return updatedDates;
-                });
-            } else {
-                setDates(prev => [...newDates, ...prev]);
-            }
-        }
-    }, [dates, scrollBatchSize, dynamicRowHeight]);
-
-    const handleScroll = useCallback(async () => {
-        if (!containerRef.current || isScrollCompensating.current) return;
-
-        const container = containerRef.current;
-        const newScrollTop = container.scrollTop;
-        const newContainerHeight = container.clientHeight;
-        const scrollHeight = container.scrollHeight;
-
-        setScrollTop(newScrollTop);
-        setContainerHeight(newContainerHeight);
-
-        const baseThreshold = dynamicRowHeight * bufferSize;
-        const topThreshold = baseThreshold;
-        const bottomThreshold = scrollHeight - newContainerHeight - baseThreshold;
-
-        const promises = [];
-        if (newScrollTop <= topThreshold && dates.length > 0) {
-            promises.push(extendDates('backward'));
-        }
-        if (newScrollTop >= bottomThreshold && dates.length > 0) {
-            promises.push(extendDates('forward'));
-        }
-
-        if (promises.length > 0) {
-            await Promise.allSettled(promises);
-        }
-    }, [dates, extendDates, dynamicRowHeight, bufferSize]);
-
-    // Загрузка данных для viewport
-    useEffect(() => {
-        const { start, end } = visibleRange;
-        const viewportDates = dates.slice(start, end);
-        const datesToLoad = viewportDates.filter(date => !rawData[date] && !loadingDates.has(date));
-
-        if (datesToLoad.length > 0) {
-            loadDatesData(datesToLoad);
-        }
-    }, [visibleRange, dates, rawData, loadingDates, loadDatesData]);
-
-    // Инициализация
+    // Эффекты
     useEffect(() => {
         if (!isInitialized && dates.length === 0) {
             const initialDates = generateInitialDates();
             setDates(initialDates);
 
-            setTimeout(() => {
-                if (containerRef.current) {
-                    const todayFormatted = formatDate(today);
-                    const todayIndex = initialDates.findIndex(date => date === todayFormatted);
+            const initializeTable = async () => {
+                const todayFormatted = formatDate(today);
+                const todayIndex = initialDates.findIndex(date => date === todayFormatted);
+
+                if (todayIndex !== -1 && containerRef.current) {
+                    await new Promise(resolve => {
+                        const checkDimensions = () => {
+                            if (containerRef.current?.clientHeight > 0) {
+                                resolve();
+                            } else {
+                                requestAnimationFrame(checkDimensions);
+                            }
+                        };
+                        checkDimensions();
+                    });
 
                     const containerHeight = containerRef.current.clientHeight;
-                    setContainerHeight(containerHeight);
-                    setScrollTop(0);
-                    setIsInitialized(true);
+                    const visibleRows = Math.ceil(containerHeight / rowHeight);
+                    const totalRowsNeeded = visibleRows + (bufferSize * 2);
+                    const initialBatchSize = Math.max(scrollBatchSize * 2, totalRowsNeeded);
 
-                    if (todayIndex !== -1) {
-                        setTimeout(() => {
-                            if (containerRef.current) {
-                                const targetScroll = todayIndex * dynamicRowHeight - (containerHeight / 2) + (dynamicRowHeight / 2);
-                                containerRef.current.scrollTop = Math.max(0, targetScroll);
-                                setScrollTop(containerRef.current.scrollTop);
-                            }
-                        }, 100);
+                    const startIndex = Math.max(0, todayIndex - Math.floor(initialBatchSize / 2));
+                    const endIndex = Math.min(initialDates.length, startIndex + initialBatchSize);
+
+                    const batchesToLoad = [];
+                    for (let i = startIndex; i < endIndex; i += scrollBatchSize) {
+                        const batchStart = initialDates[i];
+                        const batchSize = Math.min(scrollBatchSize, endIndex - i);
+                        batchesToLoad.push({ startDate: batchStart, size: batchSize });
                     }
+
+                    const loadPromises = batchesToLoad.map(batch =>
+                        loadBatch(batch.startDate, batch.size)
+                    );
+
+                    await Promise.allSettled(loadPromises);
+                    scheduleRowspanRecalculation();
+
+                    setTimeout(() => {
+                        if (containerRef.current) {
+                            const targetScroll = todayIndex * rowHeight - (containerHeight / 2) + (rowHeight / 2);
+                            containerRef.current.scrollTop = Math.max(0, targetScroll);
+
+                            setContainerHeight(containerHeight);
+                            setScrollTop(containerRef.current.scrollTop);
+                            setIsInitialized(true);
+
+                            setTimeout(() => {
+                                const preloadPromises = [];
+
+                                if (startIndex > bufferSize) {
+                                    const preloadStartUp = Math.max(0, startIndex - bufferSize);
+                                    preloadPromises.push(loadBatch(initialDates[preloadStartUp], bufferSize));
+                                }
+
+                                if (endIndex < initialDates.length - bufferSize) {
+                                    preloadPromises.push(loadBatch(initialDates[endIndex], bufferSize));
+                                }
+
+                                if (preloadPromises.length > 0) {
+                                    Promise.allSettled(preloadPromises).then(() => {
+                                        scheduleRowspanRecalculation();
+                                    });
+                                }
+                            }, 200);
+                        }
+                    }, 100);
                 }
-            }, 0);
+            };
+
+            initializeTable();
         }
-    }, [isInitialized, dates.length, generateInitialDates, today, dynamicRowHeight]);
+    }, [isInitialized, dates.length, generateInitialDates, today, rowHeight, scrollBatchSize, loadBatch, bufferSize, scheduleRowspanRecalculation]);
+
+    useEffect(() => {
+        if (isInitialized) {
+            loadVisibleData();
+        }
+    }, [isInitialized, loadVisibleData]);
+
+    useEffect(() => {
+        return () => {
+            if (pendingRecalculation.current) {
+                clearTimeout(pendingRecalculation.current);
+            }
+        };
+    }, []);
 
     // Рендер заголовка
     const renderHeaderRows = () => {
@@ -738,7 +993,8 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
                                 fontSize: '14px',
                                 fontWeight: 'normal',
                                 whiteSpace: 'nowrap',
-                                backgroundColor: '#dee3f5'
+                                color: "black",
+                                backgroundColor: activeColorTheme("BGHeader")
                             }}
                         >
                             Дата
@@ -757,12 +1013,11 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
                                 rowSpan={node.children.length === 0 ? treeStructure.maxDepth - depth + 1 : 1}
                                 style={{
                                     backgroundColor: isVisible ? node.metadata.color : '#ccc',
-                                    color: '#fff',
                                     padding: '8px',
-                                    border: '1px solid #ddd',
                                     fontSize: '12px',
                                     fontWeight: 'normal',
                                     textAlign: 'center',
+                                    color: "black",
                                     opacity: isVisible ? 1 : 0.5
                                 }}
                             >
@@ -860,50 +1115,14 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
                             }}>
                                 {node.name}
                             </span>
-                            <span style={{
-                                fontSize: '12px',
-                                color: '#666',
-                                marginLeft: '8px'
-                            }}>
-                                ({node.metadata.workCount})
-                            </span>
-                        </div>
-
-                        <div style={{
-                            display: 'flex',
-                            justifyContent: 'center',
-                            gap: '4px'
-                        }}>
-                            {hasChildren && (
-                                <>
-                                    <button
-                                        onClick={() => toggleAllChildrenVisibility(node.id, true)}
-                                        style={{
-                                            background: 'none',
-                                            border: 'none',
-                                            cursor: 'pointer',
-                                            color: '#666',
-                                            fontSize: '12px',
-                                            padding: '2px 4px'
-                                        }}
-                                    >
-                                        показать всё
-                                    </button>
-                                    <span style={{ color: '#ddd', fontSize: '12px' }}>/</span>
-                                    <button
-                                        onClick={() => toggleAllChildrenVisibility(node.id, false)}
-                                        style={{
-                                            background: 'none',
-                                            border: 'none',
-                                            cursor: 'pointer',
-                                            color: '#666',
-                                            fontSize: '12px',
-                                            padding: '2px 4px'
-                                        }}
-                                    >
-                                        скрыть всё
-                                    </button>
-                                </>
+                            {node.metadata.workCount && (
+                                <span style={{
+                                    fontSize: '12px',
+                                    color: '#666',
+                                    marginLeft: '8px'
+                                }}>
+                                    ({node.metadata.workCount})
+                                </span>
                             )}
                         </div>
                     </div>
@@ -966,45 +1185,7 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
                 </div>
 
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: '120px auto 150px',
-                        padding: '8px 16px',
-                        backgroundColor: '#f8f9fa',
-                        borderBottom: '1px solid #e0e0e0',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        color: '#666'
-                    }}>
-                        <div>Отобразить</div>
-                        <div>Название узла</div>
-                        <div style={{ textAlign: 'center' }}>Действия</div>
-                    </div>
-
                     {filteredTree.map(node => renderNode(node))}
-                </div>
-
-                <div style={{
-                    padding: '12px 16px',
-                    borderTop: '1px solid #e0e0e0',
-                    backgroundColor: '#f8f9fa',
-                    display: 'flex',
-                    justifyContent: 'flex-end'
-                }}>
-                    <button
-                        onClick={() => setShowFilters(false)}
-                        style={{
-                            padding: '8px 20px',
-                            backgroundColor: '#007bff',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '14px'
-                        }}
-                    >
-                        Применить
-                    </button>
                 </div>
             </div>
         );
@@ -1012,8 +1193,8 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
 
     const { start: startIndex, end: endIndex } = visibleRange;
     const visibleDates = dates.slice(startIndex, endIndex);
-    const paddingTop = startIndex * dynamicRowHeight;
-    const paddingBottom = Math.max(0, (dates.length - endIndex) * dynamicRowHeight);
+    const paddingTop = startIndex * rowHeight;
+    const paddingBottom = Math.max(0, (dates.length - endIndex) * rowHeight);
 
     return (
         <>
@@ -1060,7 +1241,7 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
                     <thead style={{
                         position: 'sticky',
                         top: 0,
-                        backgroundColor: '#dee3f5',
+                        backgroundColor: activeColorTheme("BGHeader"),
                         zIndex: 10
                     }}>
                     {renderHeaderRows()}
@@ -1074,8 +1255,8 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
                     )}
 
                     {visibleDates.map((dateString, index) => {
-                        const data = rawData[dateString];
-                        const isLoading = loadingDates.has(dateString) || !data;
+                        const processedRow = processedCache[dateString];
+                        const isLoading = !processedRow;
                         const rowDate = parseDateString(dateString);
                         const isPastDate = rowDate.getTime() < today.getTime();
 
@@ -1083,8 +1264,8 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
                             <tr
                                 key={`${dateString}-${startIndex + index}`}
                                 style={{
-                                    height: `${dynamicRowHeight}px`,
-                                    backgroundColor: isPastDate ? '#f5f5f5' : 'white',
+                                    height: `${rowHeight}px`,
+                                    backgroundColor: isLoading ? 'transparent' : activeColorTheme("DATE", isPastDate),
                                 }}
                             >
                                 <td style={{
@@ -1093,40 +1274,62 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
                                     fontSize: '14px',
                                     fontWeight: 'normal',
                                     whiteSpace: 'nowrap',
-                                    color: isPastDate ? '#666' : 'inherit'
+                                    color: isPastDate ? '#666' : 'inherit',
                                 }}>
                                     {dateString}
                                 </td>
 
-                                {visibleLeafNodes.map((leafNode) => (
-                                    <td
-                                        key={`${dateString}-${leafNode.id}`}
-                                        style={{
-                                            padding: '4px',
-                                            textAlign: 'center',
-                                            backgroundColor: isLoading ? 'transparent' : '#cdef8d',
-                                            fontSize: '14px',
-                                            minWidth: '50px',
-                                            verticalAlign: 'middle',
-                                            borderRight: '1px solid #ddd',
-                                            fontWeight: 'normal'
-                                        }}
-                                    >
-                                        {isLoading ? (
-                                            <div style={{
-                                                width: '16px',
-                                                height: '16px',
-                                                borderRadius: '50%',
-                                                border: '2px solid #ddd',
-                                                borderTop: '2px solid #007bff',
-                                                animation: 'spin 1s linear infinite',
-                                                margin: 'auto',
-                                            }} />
-                                        ) : (
-                                            'М'
-                                        )}
-                                    </td>
-                                ))}
+                                {visibleLeafNodes.map((leafNode) => {
+                                    const cellValue = processedRow ? getCellValue(processedRow, leafNode.id) : 'М';
+
+                                    let shouldDisplay = true;
+                                    let rowSpan = 1;
+
+                                    if (processedRow) {
+                                        const elementData = processedRow.elements[leafNode.id];
+                                        if (elementData) {
+                                            shouldDisplay = elementData.displayed;
+                                            rowSpan = elementData.rowspan;
+                                        }
+                                    }
+
+                                    if (!shouldDisplay) {
+                                        return null;
+                                    }
+
+                                    return (
+                                        <td
+                                            key={`${dateString}-${leafNode.id}`}
+                                            rowSpan={rowSpan}
+                                            style={{
+                                                padding: '4px',
+                                                textAlign: 'center',
+                                                backgroundColor: isLoading ?
+                                                    'transparent' :
+                                                    activeColorTheme(cellValue, isPastDate),
+                                                fontSize: '14px',
+                                                minWidth: '50px',
+                                                verticalAlign: 'middle',
+                                                borderRight: '1px solid #ddd',
+                                                fontWeight: 'normal',
+                                            }}
+                                        >
+                                            {isLoading ? (
+                                                <div style={{
+                                                    width: '16px',
+                                                    height: '16px',
+                                                    borderRadius: '50%',
+                                                    border: '2px solid #ddd',
+                                                    borderTop: '2px solid #007bff',
+                                                    animation: 'spin 1s linear infinite',
+                                                    margin: 'auto',
+                                                }} />
+                                            ) : (
+                                                cellValue
+                                            )}
+                                        </td>
+                                    );
+                                })}
                             </tr>
                         );
                     })}
@@ -1145,37 +1348,51 @@ export const Table = ({ maxWidth = '100%', maxHeight = '600px', debug = true }) 
                         0% { transform: rotate(0deg); }
                         100% { transform: rotate(360deg); }
                     }
-                    `}
+                `}
                 </style>
             </div>
 
-            {debug && (
-                <div style={{
-                    background: 'rgba(255, 255, 255, 0.95)',
-                    padding: '6px 12px',
-                    margin: "20px 0",
-                    border: '1px solid #ddd',
-                    fontSize: '11px',
-                    fontFamily: 'monospace',
-                    color: '#666',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                    flexWrap: 'wrap',
-                    width: 'fit-content'
-                }}>
-                    <span><strong>Видимые строки:</strong> {visibleDates.length}</span>
-                    <span><strong>Диапазон:</strong> {startIndex}-{endIndex}</span>
-                    <span><strong>Всего дат:</strong> {dates.length}</span>
-                    <span><strong>В данных:</strong> {Object.keys(rawData).length}</span>
-                    <span><strong>Загружается:</strong> {loadingDates.size}</span>
-                    <span><strong>Глубина дерева:</strong> {treeStructure.maxDepth}</span>
-                    <span><strong>Всего листовых узлов:</strong> {treeStructure.leafNodes.length}</span>
-                    <span><strong>Видимых листовых узлов:</strong> {visibleLeafNodes.length}</span>
-                    <span><strong>Развернутых узлов:</strong> {expandedNodes.size}</span>
-                    <span><strong>Поисковый запрос:</strong> "{searchTerm}"</span>
-                </div>
-            )}
+            {debug && <div style={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                padding: '6px 12px',
+                margin: "20px 0",
+                border: '1px solid #ddd',
+                fontSize: '11px',
+                fontFamily: 'monospace',
+                color: '#666',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                flexWrap: 'wrap',
+                width: 'fit-content'
+            }}>
+                <span><strong>Видимые строки:</strong> {visibleDates.length}</span>
+                <span><strong>Диапазон:</strong> {startIndex}-{endIndex}</span>
+                <span><strong>Всего дат:</strong> {dates.length}</span>
+                <span><strong>В кэше сырых данных:</strong> {Object.keys(dataCache).length}</span>
+                <span><strong>В кэше обработанных:</strong> {Object.keys(processedCache).length}</span>
+                <span><strong>Загружается батчей:</strong> {loadingBatches.size}</span>
+                <span><strong>Размер батча:</strong> {scrollBatchSize} дней</span>
+                <span><strong>Скорость скролла:</strong> {scrollVelocity.current.toFixed(2)}</span>
+                <span><strong>Компенсация скролла:</strong> {isScrollCompensating.current ? 'Да' : 'Нет'}</span>
+                <span><strong>Глубина дерева:</strong> {treeStructure.maxDepth}</span>
+                <span><strong>Всего листовых узлов:</strong> {treeStructure.leafNodes.length}</span>
+                <span><strong>Видимых листовых узлов:</strong> {visibleLeafNodes.length}</span>
+                <span><strong>Развернутых узлов:</strong> {expandedNodes.size}</span>
+                <span><strong>Поисковый запрос:</strong> "{searchTerm}"</span>
+            </div>}
         </>
     );
 };
+
+// Публичное API
+export const setDataProvider = (provider) => {
+    customDataProvider = provider;
+};
+
+export const getDataProvider = () => {
+    return customDataProvider || defaultDataProvider;
+};
+
+// Экспортируем утилиты для внешнего использования
+export { formatDate, parseDateString, defaultHeaders };
