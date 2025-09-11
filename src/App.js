@@ -26,8 +26,7 @@ const getStageColor = (stageValue, isPastDate) => {
 function App() {
     return (
         <main style={{width: "100%"}}>
-            <Table maxWidth={'1200px'} maxHeight={'600px'} colorTheme={getStageColor}  debug={false} />
-            <TableHeader />
+            <Table maxWidth={'1200px'} maxHeight={'600px'} colorTheme={getStageColor} debug={false} />
         </main>
     )
 }
