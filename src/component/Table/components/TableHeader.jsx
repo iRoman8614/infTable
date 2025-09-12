@@ -24,32 +24,19 @@ export const TableHeader = ({
                                 activeColorTheme
                             }) => {
 
-    // ОТЛАДОЧНАЯ ИНФОРМАЦИЯ
-    React.useEffect(() => {
-        console.log('[TableHeader] Инициализация с данными:');
-        console.log('- treeStructure:', treeStructure);
-        console.log('- treeStructure.tree:', treeStructure?.tree);
-        console.log('- treeStructure.maxDepth:', treeStructure?.maxDepth);
-        console.log('- nodeVisibility:', nodeVisibility);
-        console.log('- activeColorTheme:', typeof activeColorTheme);
-    }, [treeStructure, nodeVisibility, activeColorTheme]);
-
     // Проверка полной видимости узла
     const isNodeFullyVisible = useCallback((nodeId) => {
         if (!nodeVisibility || typeof nodeVisibility !== 'object') {
-            console.log('[TableHeader] nodeVisibility не определен, считаем узел видимым:', nodeId);
             return true; // По умолчанию считаем видимым
         }
 
         let currentNodeId = nodeId;
         while (currentNodeId) {
             if (!nodeVisibility[currentNodeId]) {
-                console.log('[TableHeader] Узел невидим:', currentNodeId);
                 return false;
             }
             const node = treeStructure.nodesMap?.get(currentNodeId);
             if (!node) {
-                console.log('[TableHeader] Узел не найден в nodesMap:', currentNodeId);
                 return false;
             }
             currentNodeId = node.parentId;
@@ -60,31 +47,26 @@ export const TableHeader = ({
     // Функция расчета colspan
     const calculateColspan = useCallback((node) => {
         if (!node) {
-            console.log('[TableHeader] calculateColspan: node не определен');
             return 0;
         }
 
         if (!node.children || node.children.length === 0) {
             const isVisible = isNodeFullyVisible(node.id);
-            console.log(`[TableHeader] Листовой узел "${node.name}": видимость=${isVisible}`);
             return isVisible ? 1 : 0;
         }
 
         const colspan = node.children.reduce((sum, child) => sum + calculateColspan(child), 0);
-        console.log(`[TableHeader] Узел "${node.name}": colspan=${colspan}`);
         return colspan;
     }, [isNodeFullyVisible]);
 
     // Фильтрация видимых узлов для заголовка
     const filterVisibleNodes = useCallback((nodes) => {
         if (!Array.isArray(nodes)) {
-            console.log('[TableHeader] filterVisibleNodes: nodes не является массивом:', nodes);
             return [];
         }
 
         const filtered = nodes.filter(node => {
             if (isNodeFullyVisible(node.id)) {
-                console.log(`[TableHeader] Узел "${node.name}" полностью видим`);
                 return true;
             }
 
@@ -96,24 +78,17 @@ export const TableHeader = ({
             };
 
             const hasVisible = hasVisibleDescendants(node);
-            console.log(`[TableHeader] Узел "${node.name}" имеет видимых потомков: ${hasVisible}`);
             return hasVisible;
         }).map(node => ({
             ...node,
             children: filterVisibleNodes(node.children || [])
         }));
-
-        console.log(`[TableHeader] Отфильтровано узлов: ${filtered.length} из ${nodes.length}`);
         return filtered;
     }, [isNodeFullyVisible]);
 
     // Рендер строк заголовка с отладкой
     const renderHeaderRows = useCallback(() => {
-        console.log('[TableHeader] Начинаем рендер заголовков...');
-        console.log('[TableHeader] treeStructure.tree:', treeStructure?.tree);
-
         if (!treeStructure || !treeStructure.tree || !Array.isArray(treeStructure.tree)) {
-            console.error('[TableHeader] treeStructure.tree недоступен или не является массивом');
             return [];
         }
 
@@ -127,14 +102,11 @@ export const TableHeader = ({
         let depth = 1;
 
         while (currentLevelNodes.length > 0 && depth <= treeStructure.maxDepth) {
-            console.log(`[TableHeader] Обрабатываем уровень ${depth}, узлов: ${currentLevelNodes.length}`);
-
             const currentDepth = depth;
             const rowCells = [];
 
             // Ячейка "Дата" - отображается только в первой строке
             if (currentDepth === 1) {
-                console.log('[TableHeader] Добавляем ячейку "Дата"');
                 rowCells.push(
                     <th
                         key="date-header"
@@ -158,10 +130,7 @@ export const TableHeader = ({
             // Ячейки для узлов дерева
             currentLevelNodes.forEach(node => {
                 const colspan = calculateColspan(node);
-                console.log(`[TableHeader] Узел "${node.name}": colspan=${colspan}`);
-
                 if (colspan === 0) {
-                    console.log(`[TableHeader] Пропускаем узел "${node.name}" (colspan=0)`);
                     return;
                 }
 
@@ -169,8 +138,6 @@ export const TableHeader = ({
                 const backgroundColor = isVisible && node.metadata?.color ? node.metadata.color : '#ccc';
                 const rowSpan = (!node.children || node.children.length === 0) ?
                     treeStructure.maxDepth - currentDepth + 1 : 1;
-
-                console.log(`[TableHeader] Добавляем ячейку "${node.name}": colspan=${colspan}, rowSpan=${rowSpan}, bg=${backgroundColor}`);
 
                 rowCells.push(
                     <th
@@ -193,8 +160,6 @@ export const TableHeader = ({
                 );
             });
 
-            console.log(`[TableHeader] Строка ${depth} содержит ${rowCells.length} ячеек`);
-
             rows.push(
                 <tr key={`header-row-${currentDepth}`}>
                     {rowCells}
@@ -212,16 +177,12 @@ export const TableHeader = ({
             currentLevelNodes = filterVisibleNodes(nextLevelNodes);
             depth++;
 
-            console.log(`[TableHeader] Следующий уровень: ${nextLevelNodes.length} узлов, после фильтрации: ${currentLevelNodes.length}`);
         }
 
-        console.log(`[TableHeader] Сгенерировано ${rows.length} строк заголовка`);
         return rows;
     }, [treeStructure, filterVisibleNodes, calculateColspan, isNodeFullyVisible, activeColorTheme]);
 
     const headerRows = renderHeaderRows();
-
-    console.log('[TableHeader] Финальный рендер, строк:', headerRows.length);
 
     return (
         <thead style={{

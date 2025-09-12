@@ -1,191 +1,531 @@
+<!--<!DOCTYPE html>-->
+<!--<html lang="en">-->
+<!--<head>-->
+<!--  <meta charset="utf-8" />-->
+<!--  <meta name="viewport" content="width=device-width, initial-scale=1" />-->
+<!--  <title>Virtualized Table - Working Version</title>-->
+<!--</head>-->
+<!--<body>-->
+<!--<h1>Виртуализированная таблица</h1>-->
+
+<!--&lt;!&ndash; Встроенные провайдеры &ndash;&gt;-->
+<!--<script>-->
+
+<!--  // === ПРОВАЙДЕР ЗАГОЛОВКОВ ===-->
+<!--  window.HeadersProvider = function() {-->
+<!--    console.log('[HeadersProvider] Вызов функции провайдера');-->
+
+<!--    return {-->
+<!--      "headers": [-->
+<!--        {-->
+<!--          "id": "factory1",-->
+<!--          "parentId": null,-->
+<!--          "type": "node",-->
+<!--          "name": "Завод №1 'Металлург'",-->
+<!--          "metadata": {-->
+<!--            "color": "#343434",-->
+<!--            "tooltip": "Основной производственный комплекс",-->
+<!--            "workCount": 150-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "workshop1",-->
+<!--          "parentId": "factory1",-->
+<!--          "type": "assembly",-->
+<!--          "name": "Цех сборки №1",-->
+<!--          "metadata": {-->
+<!--            "color": "#4caf50",-->
+<!--            "tooltip": "Основной сборочный цех",-->
+<!--            "workCount": 45-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "line1",-->
+<!--          "parentId": "workshop1",-->
+<!--          "type": "component",-->
+<!--          "name": "Линия А",-->
+<!--          "metadata": {-->
+<!--            "color": "#ff9800",-->
+<!--            "tooltip": "Автоматизированная линия сборки",-->
+<!--            "workCount": 15-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "station1",-->
+<!--          "parentId": "line1",-->
+<!--          "type": "component",-->
+<!--          "name": "Станция 1",-->
+<!--          "metadata": {-->
+<!--            "color": "#f44336",-->
+<!--            "tooltip": "Начальная станция сборки",-->
+<!--            "workCount": 3-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "station2",-->
+<!--          "parentId": "line1",-->
+<!--          "type": "component",-->
+<!--          "name": "Станция 2",-->
+<!--          "metadata": {-->
+<!--            "color": "#f44336",-->
+<!--            "tooltip": "Промежуточная станция",-->
+<!--            "workCount": 4-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "station3",-->
+<!--          "parentId": "line1",-->
+<!--          "type": "component",-->
+<!--          "name": "Станция 3",-->
+<!--          "metadata": {-->
+<!--            "color": "#f44336",-->
+<!--            "tooltip": "Финальная станция",-->
+<!--            "workCount": 5-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "line2",-->
+<!--          "parentId": "workshop1",-->
+<!--          "type": "component",-->
+<!--          "name": "Линия Б",-->
+<!--          "metadata": {-->
+<!--            "color": "#ff9800",-->
+<!--            "tooltip": "Полуавтоматическая линия",-->
+<!--            "workCount": 12-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "station4",-->
+<!--          "parentId": "line2",-->
+<!--          "type": "component",-->
+<!--          "name": "Станция 4",-->
+<!--          "metadata": {-->
+<!--            "color": "#f44336",-->
+<!--            "tooltip": "Контрольная станция",-->
+<!--            "workCount": 2-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "station5",-->
+<!--          "parentId": "line2",-->
+<!--          "type": "component",-->
+<!--          "name": "Станция 5",-->
+<!--          "metadata": {-->
+<!--            "color": "#f44336",-->
+<!--            "tooltip": "Упаковочная станция",-->
+<!--            "workCount": 3-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "workshop2",-->
+<!--          "parentId": "factory1",-->
+<!--          "type": "assembly",-->
+<!--          "name": "Цех механообработки",-->
+<!--          "metadata": {-->
+<!--            "color": "#4caf50",-->
+<!--            "tooltip": "Цех механической обработки деталей",-->
+<!--            "workCount": 65-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "section1",-->
+<!--          "parentId": "workshop2",-->
+<!--          "type": "component",-->
+<!--          "name": "Участок токарных работ",-->
+<!--          "metadata": {-->
+<!--            "color": "#9c27b0",-->
+<!--            "tooltip": "Участок токарной обработки",-->
+<!--            "workCount": 25-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "machine1",-->
+<!--          "parentId": "section1",-->
+<!--          "type": "component",-->
+<!--          "name": "Станок ЧПУ-1",-->
+<!--          "metadata": {-->
+<!--            "color": "#795548",-->
+<!--            "tooltip": "Токарный станок с ЧПУ",-->
+<!--            "workCount": 1-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "machine2",-->
+<!--          "parentId": "section1",-->
+<!--          "type": "component",-->
+<!--          "name": "Станок ЧПУ-2",-->
+<!--          "metadata": {-->
+<!--            "color": "#795548",-->
+<!--            "tooltip": "Фрезерный станок с ЧПУ",-->
+<!--            "workCount": 1-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "factory2",-->
+<!--          "parentId": null,-->
+<!--          "type": "node",-->
+<!--          "name": "Завод №2 'Электрон'",-->
+<!--          "metadata": {-->
+<!--            "color": "#3f51b5",-->
+<!--            "tooltip": "Завод электронных компонентов",-->
+<!--            "workCount": 120-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "workshop3",-->
+<!--          "parentId": "factory2",-->
+<!--          "type": "assembly",-->
+<!--          "name": "Цех печатных плат",-->
+<!--          "metadata": {-->
+<!--            "color": "#00bcd4",-->
+<!--            "tooltip": "Производство печатных плат",-->
+<!--            "workCount": 35-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "pcb_line1",-->
+<!--          "parentId": "workshop3",-->
+<!--          "type": "component",-->
+<!--          "name": "Линия ПП-1",-->
+<!--          "metadata": {-->
+<!--            "color": "#e91e63",-->
+<!--            "tooltip": "Линия производства печатных плат",-->
+<!--            "workCount": 8-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "pcb_line2",-->
+<!--          "parentId": "workshop3",-->
+<!--          "type": "component",-->
+<!--          "name": "Линия ПП-2",-->
+<!--          "metadata": {-->
+<!--            "color": "#e91e63",-->
+<!--            "tooltip": "Линия производства сложных плат",-->
+<!--            "workCount": 6-->
+<!--          }-->
+<!--        }-->
+<!--      ]-->
+<!--    }-->
+<!--  };-->
+
+<!--  // === ПРОВАЙДЕР ДАННЫХ ===-->
+<!--  window.customDataProvider = async function(startDate, days, leafNodes) {-->
+<!--    console.log(`[DataProvider] Загрузка: ${startDate}, дней: ${days}, узлов: ${leafNodes.length}`);-->
+
+<!--    // Имитация задержки-->
+<!--    await new Promise(resolve => setTimeout(resolve, 100));-->
+
+<!--    const batchData = [];-->
+<!--    const statuses = ["М", "О", "П", "ПР", "Р"];-->
+
+<!--    // Парсинг даты-->
+<!--    const [day, month, year] = startDate.split('.').map(Number);-->
+<!--    const startDateObj = new Date(year, month - 1, day);-->
+
+<!--    for (let i = 0; i < days; i++) {-->
+<!--      const currentDate = new Date(startDateObj);-->
+<!--      currentDate.setDate(startDateObj.getDate() + i);-->
+
+<!--      const dateStr = currentDate.toLocaleDateString('ru-RU', {-->
+<!--        day: '2-digit',-->
+<!--        month: '2-digit',-->
+<!--        year: 'numeric'-->
+<!--      });-->
+
+<!--      const dayData = {-->
+<!--        date: dateStr,-->
+<!--        timestamp: Date.now()-->
+<!--      };-->
+
+<!--      leafNodes.forEach(node => {-->
+<!--        dayData[node.id] = statuses[Math.floor(Math.random() * statuses.length)];-->
+<!--      });-->
+
+<!--      batchData.push(dayData);-->
+<!--    }-->
+
+<!--    return { data: batchData };-->
+<!--  };-->
+
+<!--  // === ОБРАБОТЧИК КЛИКОВ ===-->
+<!--  window.handleCellClick = function(cellData) {-->
+<!--    console.log('[ClickHandler] Клик по ячейке:', cellData);-->
+<!--    console.log(`Дата: ${cellData.date}, Узел: ${cellData.node?.name}, Значение: ${cellData.value}`);-->
+<!--  };-->
+
+<!--  // Создаем алиасы для совместимости-->
+<!--  // window.hp = window.HeadersProvider;-->
+<!--  window.hp = function() {-->
+<!--    console.log('[HeadersProvider] Вызов функции провайдера');-->
+
+<!--    return {-->
+<!--      headers: [-->
+<!--        {-->
+<!--          id: "factory1",-->
+<!--          parentId: null,-->
+<!--          name: "Завод №1 'Металлург'",-->
+<!--          metadata: {-->
+<!--            color: "#343434",-->
+<!--            workCount: 150-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "workshop1",-->
+<!--          parentId: "factory1",-->
+<!--          name: "Цех сборки №1",-->
+<!--          metadata: {-->
+<!--            color: "#4caf50",-->
+<!--            workCount: 45-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "line1",-->
+<!--          parentId: "workshop1",-->
+<!--          name: "Линия А",-->
+<!--          metadata: {-->
+<!--            color: "#ff9800",-->
+<!--            workCount: 15-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "station1",-->
+<!--          parentId: "line1",-->
+<!--          name: "Станция 1",-->
+<!--          metadata: {-->
+<!--            color: "#f44336",-->
+<!--            workCount: 3-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "station2",-->
+<!--          parentId: "line1",-->
+<!--          name: "Станция 2",-->
+<!--          metadata: {-->
+<!--            color: "#f44336",-->
+<!--            workCount: 4-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "station3",-->
+<!--          parentId: "line1",-->
+<!--          name: "Станция 3",-->
+<!--          metadata: {-->
+<!--            color: "#f44336",-->
+<!--            workCount: 5-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "line2",-->
+<!--          parentId: "workshop1",-->
+<!--          name: "Линия Б",-->
+<!--          metadata: {-->
+<!--            color: "#ff9800",-->
+<!--            workCount: 12-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "station4",-->
+<!--          parentId: "line2",-->
+<!--          name: "Станция 4",-->
+<!--          metadata: {-->
+<!--            color: "#f44336",-->
+<!--            workCount: 2-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "station5",-->
+<!--          parentId: "line2",-->
+<!--          name: "Станция 5",-->
+<!--          metadata: {-->
+<!--            color: "#f44336",-->
+<!--            workCount: 3-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "workshop2",-->
+<!--          parentId: "factory1",-->
+<!--          name: "Цех механообработки",-->
+<!--          metadata: {-->
+<!--            color: "#4caf50",-->
+<!--            workCount: 65-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "section1",-->
+<!--          parentId: "workshop2",-->
+<!--          name: "Участок токарных работ",-->
+<!--          metadata: {-->
+<!--            color: "#9c27b0",-->
+<!--            workCount: 25-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "machine1",-->
+<!--          parentId: "section1",-->
+<!--          name: "Станок ЧПУ-1",-->
+<!--          metadata: {-->
+<!--            color: "#795548",-->
+<!--            workCount: 1-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "machine2",-->
+<!--          parentId: "section1",-->
+<!--          name: "Станок ЧПУ-2",-->
+<!--          metadata: {-->
+<!--            color: "#795548",-->
+<!--            workCount: 1-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "factory2",-->
+<!--          parentId: null,-->
+<!--          name: "Завод №2 'Электрон'",-->
+<!--          metadata: {-->
+<!--            color: "#3f51b5",-->
+<!--            workCount: 120-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "workshop3",-->
+<!--          parentId: "factory2",-->
+<!--          name: "Цех печатных плат",-->
+<!--          metadata: {-->
+<!--            color: "#00bcd4",-->
+<!--            workCount: 35-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "pcb_line1",-->
+<!--          parentId: "workshop3",-->
+<!--          name: "Линия ПП-1",-->
+<!--          metadata: {-->
+<!--            color: "#e91e63",-->
+<!--            workCount: 8-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          id: "pcb_line2",-->
+<!--          parentId: "workshop3",-->
+<!--          name: "Линия ПП-2",-->
+<!--          metadata: {-->
+<!--            color: "#e91e63",-->
+<!--            workCount: 6-->
+<!--          }-->
+<!--        }-->
+<!--      ]-->
+<!--    };-->
+<!--  };-->
+<!--  window.dp = window.customDataProvider;-->
+
+<!--  console.log('[HTML] Провайдеры установлены:');-->
+<!--  console.log('- HeadersProvider:', typeof window.HeadersProvider);-->
+<!--  console.log('- customDataProvider:', typeof window.customDataProvider);-->
+<!--  console.log('- handleCellClick:', typeof window.handleCellClick);-->
+
+<!--  // Тестируем провайдер заголовков-->
+<!--  try {-->
+<!--    const testHeaders = window.HeadersProvider();-->
+<!--    console.log(`[HTML] Тест провайдера: ${testHeaders.headers.length} заголовков`);-->
+<!--  } catch (error) {-->
+<!--    console.error('[HTML] Ошибка в провайдере заголовков:', error);-->
+<!--  }-->
+<!--</script>-->
+
+<!--<virtualized-table-->
+<!--        header-provider-name="HeadersProvider"-->
+<!--        data-provider-name="customDataProvider"-->
+<!--        on-cell-click-handler="handleCellClick"-->
+<!--        max-width="100%"-->
+<!--        max-height="600px"-->
+<!--        scroll-batch-size="7"-->
+<!--        debug="true">-->
+<!--</virtualized-table>-->
+
+<!--&lt;!&ndash; Загрузка компонента &ndash;&gt;-->
+<!--<script>-->
+<!--  const script = document.createElement('script');-->
+<!--  script.src = '../dist/virtualized-table.js';-->
+
+<!--  script.onload = function() {-->
+
+<!--    // Проверяем регистрацию через задержку-->
+<!--    setTimeout(() => {-->
+<!--      const registered = customElements.get('virtualized-table');-->
+<!--      if (registered) {-->
+<!--        console.log('[HTML] ✅ Web Component зарегистрирован');-->
+<!--      } else {-->
+<!--        console.error('[HTML] ❌ Web Component НЕ зарегистрирован');-->
+<!--      }-->
+<!--    }, 500);-->
+<!--  };-->
+
+<!--  document.head.appendChild(script);-->
+<!--</script>-->
+
+<!--<style>-->
+<!--  body {-->
+<!--    font-family: Arial, sans-serif;-->
+<!--    margin: 20px;-->
+<!--    background-color: #f5f5f5;-->
+<!--  }-->
+<!--  h1 {-->
+<!--    color: #333;-->
+<!--    margin-bottom: 20px;-->
+<!--  }-->
+<!--  virtualized-table {-->
+<!--    background: white;-->
+<!--    border-radius: 4px;-->
+<!--    box-shadow: 0 2px 4px rgba(0,0,0,0.1);-->
+<!--  }-->
+<!--</style>-->
+<!--</body>-->
+<!--</html>-->
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Virtualized Table - Working Version</title>
+  <title>Простая виртуализированная таблица</title>
 </head>
 <body>
-<h1>Виртуализированная таблица</h1>
+<h1>Простая виртуализированная таблица</h1>
 
-<!-- Встроенные провайдеры -->
+<virtualized-table
+        max-width="100%"
+        max-height="600px"
+        scroll-batch-size="7"
+        debug="true">
+</virtualized-table>
+
 <script>
-  console.log('[HTML] Установка провайдеров...');
-
-  // === ПРОВАЙДЕР ЗАГОЛОВКОВ ===
-  window.HeadersProvider = function() {
-    console.log('[HeadersProvider] Вызов функции провайдера');
-
+  // 1. Провайдер заголовков (hp) - вызывается только при инициализации
+  window.hp = function() {
+    console.log('[HP] Загрузка заголовков');
     return {
       headers: [
-        {
-          id: "factory1",
-          parentId: null,
-          name: "Завод №1 'Металлург'",
-          metadata: {
-            color: "#343434",
-            workCount: 150
-          }
-        },
-        {
-          id: "workshop1",
-          parentId: "factory1",
-          name: "Цех сборки №1",
-          metadata: {
-            color: "#4caf50",
-            workCount: 45
-          }
-        },
-        {
-          id: "line1",
-          parentId: "workshop1",
-          name: "Линия А",
-          metadata: {
-            color: "#ff9800",
-            workCount: 15
-          }
-        },
-        {
-          id: "station1",
-          parentId: "line1",
-          name: "Станция 1",
-          metadata: {
-            color: "#f44336",
-            workCount: 3
-          }
-        },
-        {
-          id: "station2",
-          parentId: "line1",
-          name: "Станция 2",
-          metadata: {
-            color: "#f44336",
-            workCount: 4
-          }
-        },
-        {
-          id: "station3",
-          parentId: "line1",
-          name: "Станция 3",
-          metadata: {
-            color: "#f44336",
-            workCount: 5
-          }
-        },
-        {
-          id: "line2",
-          parentId: "workshop1",
-          name: "Линия Б",
-          metadata: {
-            color: "#ff9800",
-            workCount: 12
-          }
-        },
-        {
-          id: "station4",
-          parentId: "line2",
-          name: "Станция 4",
-          metadata: {
-            color: "#f44336",
-            workCount: 2
-          }
-        },
-        {
-          id: "station5",
-          parentId: "line2",
-          name: "Станция 5",
-          metadata: {
-            color: "#f44336",
-            workCount: 3
-          }
-        },
-        {
-          id: "workshop2",
-          parentId: "factory1",
-          name: "Цех механообработки",
-          metadata: {
-            color: "#4caf50",
-            workCount: 65
-          }
-        },
-        {
-          id: "section1",
-          parentId: "workshop2",
-          name: "Участок токарных работ",
-          metadata: {
-            color: "#9c27b0",
-            workCount: 25
-          }
-        },
-        {
-          id: "machine1",
-          parentId: "section1",
-          name: "Станок ЧПУ-1",
-          metadata: {
-            color: "#795548",
-            workCount: 1
-          }
-        },
-        {
-          id: "machine2",
-          parentId: "section1",
-          name: "Станок ЧПУ-2",
-          metadata: {
-            color: "#795548",
-            workCount: 1
-          }
-        },
-        {
-          id: "factory2",
-          parentId: null,
-          name: "Завод №2 'Электрон'",
-          metadata: {
-            color: "#3f51b5",
-            workCount: 120
-          }
-        },
-        {
-          id: "workshop3",
-          parentId: "factory2",
-          name: "Цех печатных плат",
-          metadata: {
-            color: "#00bcd4",
-            workCount: 35
-          }
-        },
-        {
-          id: "pcb_line1",
-          parentId: "workshop3",
-          name: "Линия ПП-1",
-          metadata: {
-            color: "#e91e63",
-            workCount: 8
-          }
-        },
-        {
-          id: "pcb_line2",
-          parentId: "workshop3",
-          name: "Линия ПП-2",
-          metadata: {
-            color: "#e91e63",
-            workCount: 6
-          }
-        }
+        { id: "factory1", parentId: null, name: "Завод №1" },
+        { id: "workshop1", parentId: "factory1", name: "Цех 1" },
+        { id: "line1", parentId: "workshop1", name: "Линия А" },
+        { id: "station1", parentId: "line1", name: "Станция 1" },
+        { id: "station2", parentId: "line1", name: "Станция 2" },
+        { id: "station3", parentId: "line1", name: "Станция 3" },
+        { id: "line2", parentId: "workshop1", name: "Линия Б" },
+        { id: "station4", parentId: "line2", name: "Станция 4" },
+        { id: "station5", parentId: "line2", name: "Станция 5" }
       ]
     };
   };
 
-  // === ПРОВАЙДЕР ДАННЫХ ===
-  window.customDataProvider = async function(startDate, days, leafNodes) {
-    console.log(`[DataProvider] Загрузка: ${startDate}, дней: ${days}, узлов: ${leafNodes.length}`);
+  // 2. Провайдер данных (dp) - все ячейки 'М' (зелёные)
+  window.dp = async function(startDate, days, leafNodes) {
+    console.log(`[DP] Запрос: ${startDate}, дней: ${days}, узлов: ${leafNodes.length}`);
 
     // Имитация задержки
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    const batchData = [];
-    const statuses = ["М", "О", "П", "ПР", "Р"];
-
-    // Парсинг даты
+    const data = [];
     const [day, month, year] = startDate.split('.').map(Number);
     const startDateObj = new Date(year, month - 1, day);
 
@@ -199,243 +539,41 @@
         year: 'numeric'
       });
 
-      const dayData = {
-        date: dateStr,
-        timestamp: Date.now()
-      };
+      const dayData = { date: dateStr };
 
+      // Все ячейки заполняем 'М' (зелёные)
       leafNodes.forEach(node => {
-        dayData[node.id] = statuses[Math.floor(Math.random() * statuses.length)];
+        dayData[node.id] = 'М';
       });
 
-      batchData.push(dayData);
+      data.push(dayData);
     }
 
-    return { data: batchData };
+    console.log(`[DP] Возвращено ${data.length} записей`);
+    return { data };
   };
 
-  // === ОБРАБОТЧИК КЛИКОВ ===
-  window.handleCellClick = function(cellData) {
-    console.log('[ClickHandler] Клик по ячейке:', cellData);
-    console.log(`Дата: ${cellData.date}, Узел: ${cellData.node?.name}, Значение: ${cellData.value}`);
+  // 3. Обработчик кликов - вывод в консоль
+  window.onTableCellClick = function(cellData) {
+    console.log(`[КЛИК] Дата: ${cellData.date}, ID столбца: ${cellData.nodeId || cellData.node?.id}`);
   };
 
-  // Создаем алиасы для совместимости
-  // window.hp = window.HeadersProvider;
-  window.hp = function() {
-    console.log('[HeadersProvider] Вызов функции провайдера');
-
-    return {
-      headers: [
-        {
-          id: "factory1",
-          parentId: null,
-          name: "Завод №1 'Металлург'",
-          metadata: {
-            color: "#343434",
-            workCount: 150
-          }
-        },
-        {
-          id: "workshop1",
-          parentId: "factory1",
-          name: "Цех сборки №1",
-          metadata: {
-            color: "#4caf50",
-            workCount: 45
-          }
-        },
-        {
-          id: "line1",
-          parentId: "workshop1",
-          name: "Линия А",
-          metadata: {
-            color: "#ff9800",
-            workCount: 15
-          }
-        },
-        {
-          id: "station1",
-          parentId: "line1",
-          name: "Станция 1",
-          metadata: {
-            color: "#f44336",
-            workCount: 3
-          }
-        },
-        {
-          id: "station2",
-          parentId: "line1",
-          name: "Станция 2",
-          metadata: {
-            color: "#f44336",
-            workCount: 4
-          }
-        },
-        {
-          id: "station3",
-          parentId: "line1",
-          name: "Станция 3",
-          metadata: {
-            color: "#f44336",
-            workCount: 5
-          }
-        },
-        {
-          id: "line2",
-          parentId: "workshop1",
-          name: "Линия Б",
-          metadata: {
-            color: "#ff9800",
-            workCount: 12
-          }
-        },
-        {
-          id: "station4",
-          parentId: "line2",
-          name: "Станция 4",
-          metadata: {
-            color: "#f44336",
-            workCount: 2
-          }
-        },
-        {
-          id: "station5",
-          parentId: "line2",
-          name: "Станция 5",
-          metadata: {
-            color: "#f44336",
-            workCount: 3
-          }
-        },
-        {
-          id: "workshop2",
-          parentId: "factory1",
-          name: "Цех механообработки",
-          metadata: {
-            color: "#4caf50",
-            workCount: 65
-          }
-        },
-        {
-          id: "section1",
-          parentId: "workshop2",
-          name: "Участок токарных работ",
-          metadata: {
-            color: "#9c27b0",
-            workCount: 25
-          }
-        },
-        {
-          id: "machine1",
-          parentId: "section1",
-          name: "Станок ЧПУ-1",
-          metadata: {
-            color: "#795548",
-            workCount: 1
-          }
-        },
-        {
-          id: "machine2",
-          parentId: "section1",
-          name: "Станок ЧПУ-2",
-          metadata: {
-            color: "#795548",
-            workCount: 1
-          }
-        },
-        {
-          id: "factory2",
-          parentId: null,
-          name: "Завод №2 'Электрон'",
-          metadata: {
-            color: "#3f51b5",
-            workCount: 120
-          }
-        },
-        {
-          id: "workshop3",
-          parentId: "factory2",
-          name: "Цех печатных плат",
-          metadata: {
-            color: "#00bcd4",
-            workCount: 35
-          }
-        },
-        {
-          id: "pcb_line1",
-          parentId: "workshop3",
-          name: "Линия ПП-1",
-          metadata: {
-            color: "#e91e63",
-            workCount: 8
-          }
-        },
-        {
-          id: "pcb_line2",
-          parentId: "workshop3",
-          name: "Линия ПП-2",
-          metadata: {
-            color: "#e91e63",
-            workCount: 6
-          }
-        }
-      ]
-    };
-  };
-  window.dp = window.customDataProvider;
-
-  console.log('[HTML] Провайдеры установлены:');
-  console.log('- HeadersProvider:', typeof window.HeadersProvider);
-  console.log('- customDataProvider:', typeof window.customDataProvider);
-  console.log('- handleCellClick:', typeof window.handleCellClick);
-
-  // Тестируем провайдер заголовков
-  try {
-    const testHeaders = window.HeadersProvider();
-    console.log(`[HTML] Тест провайдера: ${testHeaders.headers.length} заголовков`);
-  } catch (error) {
-    console.error('[HTML] Ошибка в провайдере заголовков:', error);
-  }
-</script>
-
-<virtualized-table
-        header-provider-name="HeadersProvider"
-        data-provider-name="customDataProvider"
-        on-cell-click-handler="handleCellClick"
-        max-width="100%"
-        max-height="600px"
-        scroll-batch-size="7"
-        debug="true">
-</virtualized-table>
-
-<!-- Загрузка компонента -->
-<script>
-  console.log('[HTML] Загрузка компонента таблицы...');
-
+  // Загрузка компонента
   const script = document.createElement('script');
   script.src = '../dist/virtualized-table.js';
 
   script.onload = function() {
-    console.log('[HTML] ✅ Компонент таблицы загружен');
-
-    // Проверяем регистрацию через задержку
     setTimeout(() => {
-      const registered = customElements.get('virtualized-table');
-      if (registered) {
-        console.log('[HTML] ✅ Web Component зарегистрирован');
-        console.log('[HTML] 🎯 Таблица должна отобразиться с правильными заголовками');
+      if (customElements.get('virtualized-table')) {
+        console.log('[HTML] ✅ Компонент загружен успешно');
       } else {
-        console.error('[HTML] ❌ Web Component НЕ зарегистрирован');
+        console.error('[HTML] ❌ Компонент не зарегистрирован');
       }
     }, 500);
   };
 
   script.onerror = function() {
     console.error('[HTML] ❌ Ошибка загрузки компонента');
-    console.log('[HTML] Попробуйте другие пути:');
-    console.log('- /dist/virtualized-table.js');
-    console.log('- ./dist/virtualized-table.js');
   };
 
   document.head.appendChild(script);

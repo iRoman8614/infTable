@@ -86,5 +86,3 @@ export const defaultHeaders = {
         }
     ]
 };
-
-console.log('[TableIndex] Модуль таблицы инициализирован');
