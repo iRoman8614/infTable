@@ -1,417 +1,3 @@
-<!--<!DOCTYPE html>-->
-<!--<html lang="en">-->
-<!--<head>-->
-<!--  <meta charset="utf-8" />-->
-<!--  <meta name="viewport" content="width=device-width, initial-scale=1" />-->
-<!--  <title>Enhanced Virtualized Table - Test with Cell Clicks</title>-->
-<!--  <style>-->
-<!--    .debug-info {-->
-<!--      background: #f8f9fa;-->
-<!--      padding: 10px;-->
-<!--      margin: 10px 0;-->
-<!--      border-radius: 4px;-->
-<!--      font-family: monospace;-->
-<!--      font-size: 12px;-->
-<!--      border: 1px solid #e9ecef;-->
-<!--    }-->
-<!--    .provider-info {-->
-<!--      background: #e3f2fd;-->
-<!--      padding: 15px;-->
-<!--      margin: 10px 0;-->
-<!--      border-radius: 4px;-->
-<!--      font-family: Arial, sans-serif;-->
-<!--      font-size: 14px;-->
-<!--      border: 1px solid #2196f3;-->
-<!--    }-->
-<!--    .provider-info h3 {-->
-<!--      margin: 0 0 10px 0;-->
-<!--      color: #1976d2;-->
-<!--    }-->
-<!--    .controls {-->
-<!--      margin: 20px 0;-->
-<!--      padding: 15px;-->
-<!--      background: #f5f5f5;-->
-<!--      border-radius: 4px;-->
-<!--      border: 1px solid #ddd;-->
-<!--    }-->
-<!--    .controls button {-->
-<!--      margin: 5px;-->
-<!--      padding: 8px 16px;-->
-<!--      background: #007bff;-->
-<!--      color: white;-->
-<!--      border: none;-->
-<!--      border-radius: 4px;-->
-<!--      cursor: pointer;-->
-<!--    }-->
-<!--    .controls button:hover {-->
-<!--      background: #0056b3;-->
-<!--    }-->
-<!--    .click-log {-->
-<!--      background: #fff3cd;-->
-<!--      border: 1px solid #ffeaa7;-->
-<!--      border-radius: 4px;-->
-<!--      padding: 10px;-->
-<!--      margin: 10px 0;-->
-<!--      max-height: 200px;-->
-<!--      overflow-y: auto;-->
-<!--      font-family: monospace;-->
-<!--      font-size: 12px;-->
-<!--    }-->
-<!--  </style>-->
-<!--</head>-->
-<!--<body>-->
-<!--<h1>Расширенная виртуализированная таблица с обработкой кликов</h1>-->
-
-<!--<div class="provider-info">-->
-<!--  <h3>Информация о функциональности:</h3>-->
-<!--  <div><strong>Заголовки:</strong> Загружаются из внешнего файла headers.js</div>-->
-<!--  <div><strong>Данные:</strong> Автоматическое заполнение статусами для листовых узлов</div>-->
-<!--  <div><strong>Клики:</strong> Обработка кликов по ячейкам с выводом информации</div>-->
-<!--</div>-->
-
-<!--<div class="debug-info" id="debug-info">-->
-<!--  <strong>Статус:</strong> <span id="status">Инициализация...</span><br>-->
-<!--  <strong>Провайдер заголовков:</strong> <span id="header-status">Не установлен</span><br>-->
-<!--  <strong>Провайдер данных:</strong> <span id="data-status">Не установлен</span><br>-->
-<!--  <strong>Обработчик кликов:</strong> <span id="click-status">Не установлен</span>-->
-<!--</div>-->
-
-<!--<div class="controls">-->
-<!--  <button id="btn-reload" onclick="reloadTable()">Перезагрузить таблицу</button>-->
-<!--  <button id="btn-toggle-debug" onclick="toggleDebug()">Переключить отладку</button>-->
-<!--  <button id="btn-clear-log" onclick="clearClickLog()">Очистить лог кликов</button>-->
-<!--  <button id="btn-check-headers" onclick="checkHeaders()">Проверить заголовки</button>-->
-<!--</div>-->
-
-<!--<div class="click-log" id="click-log">-->
-<!--  <strong>Лог кликов по ячейкам:</strong>-->
-<!--  <div id="click-entries">Кликните по любой ячейке таблицы...</div>-->
-<!--</div>-->
-
-<!--<virtualized-table-->
-<!--        id="table"-->
-<!--        header-provider-name="Headers"-->
-<!--        data-provider-name="customDataProvider"-->
-<!--        on-cell-click-handler="handleCellClick"-->
-<!--        max-width="100%"-->
-<!--        max-height="600px"-->
-<!--        scroll-batch-size="7"-->
-<!--        debug="true">-->
-<!--</virtualized-table>-->
-
-<!--&lt;!&ndash; ПОДКЛЮЧЕНИЕ ВНЕШНИХ ФАЙЛОВ &ndash;&gt;-->
-<!--<script src="../src/component/Table/data/headers.js"></script>-->
-
-<!--<script>-->
-<!--  const statusEl = document.getElementById('status');-->
-<!--  const headerStatusEl = document.getElementById('header-status');-->
-<!--  const dataStatusEl = document.getElementById('data-status');-->
-<!--  const clickStatusEl = document.getElementById('click-status');-->
-<!--  const clickEntriesEl = document.getElementById('click-entries');-->
-
-<!--  function updateStatus(message) {-->
-<!--    statusEl.textContent = message;-->
-<!--    console.log(`[Status] ${message}`);-->
-<!--  }-->
-
-<!--  function updateHeaderStatus(message) {-->
-<!--    headerStatusEl.textContent = message;-->
-<!--    console.log(`[Header Provider] ${message}`);-->
-<!--  }-->
-
-<!--  function updateDataStatus(message) {-->
-<!--    dataStatusEl.textContent = message;-->
-<!--    console.log(`[Data Provider] ${message}`);-->
-<!--  }-->
-
-<!--  function updateClickStatus(message) {-->
-<!--    clickStatusEl.textContent = message;-->
-<!--    console.log(`[Click Handler] ${message}`);-->
-<!--  }-->
-
-<!--  updateStatus('Проверка загрузки провайдеров...');-->
-
-<!--  // === ПРОВЕРКА ЗАГОЛОВКОВ ===-->
-<!--  function checkHeaders() {-->
-<!--    if (window.Headers && window.Headers.headers) {-->
-<!--      console.log('[Headers Check] Заголовки найдены:', window.Headers.headers.length, 'узлов');-->
-<!--      updateHeaderStatus(`Загружены из файла - ${window.Headers.headers.length} узлов`);-->
-
-<!--      // Показываем структуру заголовков в консоли-->
-<!--      const leafNodes = window.Headers.headers.filter(h =>-->
-<!--              !window.Headers.headers.some(child => child.parentId === h.id)-->
-<!--      );-->
-<!--      console.log('[Headers Check] Листовые узлы:', leafNodes.map(n => n.name));-->
-
-<!--      return true;-->
-<!--    } else {-->
-<!--      console.log('[Headers Check] Заголовки НЕ найдены');-->
-<!--      updateHeaderStatus('НЕ НАЙДЕНЫ - файл не загружен?');-->
-<!--      return false;-->
-<!--    }-->
-<!--  }-->
-
-<!--  // === УТИЛИТЫ ===-->
-<!--  function parseDateString(dateString) {-->
-<!--    const [day, month, year] = dateString.split('.').map(Number);-->
-<!--    return new Date(Date.UTC(year, month - 1, day));-->
-<!--  }-->
-
-<!--  function formatDate(date) {-->
-<!--    return date.toLocaleDateString('ru-RU', {-->
-<!--      day: '2-digit',-->
-<!--      month: '2-digit',-->
-<!--      year: 'numeric'-->
-<!--    });-->
-<!--  }-->
-
-<!--  // === ПРОВАЙДЕР ДАННЫХ ===-->
-<!--  window.customDataProvider = async (startDate, days, leafNodes) => {-->
-<!--    console.log(`[Custom Data Provider] Загрузка: ${startDate}, дней: ${days}, листовых узлов: ${leafNodes.length}`);-->
-<!--    updateDataStatus(`Загрузка: ${startDate} (+${days} дней, ${leafNodes.length} колонок)`);-->
-
-<!--    // Имитация сетевой задержки-->
-<!--    await new Promise(resolve => setTimeout(resolve, 300));-->
-
-<!--    const startDateObj = parseDateString(startDate);-->
-<!--    const batchData = [];-->
-
-<!--    // Возможные статусы для разнообразия-->
-<!--    const statuses = ["М", "О", "П", "ПР", "Р"];-->
-<!--    const getRandomStatus = () => statuses[Math.floor(Math.random() * statuses.length)];-->
-
-<!--    for (let i = 0; i < days; i++) {-->
-<!--      const currentDate = new Date(startDateObj);-->
-<!--      currentDate.setUTCDate(startDateObj.getUTCDate() + i);-->
-<!--      const dateStr = formatDate(currentDate);-->
-
-<!--      const dayData = {-->
-<!--        date: dateStr,-->
-<!--        timestamp: Date.now()-->
-<!--      };-->
-
-<!--      // Заполняем данные для всех листовых узлов-->
-<!--      leafNodes.forEach(node => {-->
-<!--        // Большинство ячеек будут 'М', но иногда другие статусы для демонстрации rowspan-->
-<!--        if (Math.random() > 0.85) {-->
-<!--          dayData[node.id] = getRandomStatus();-->
-<!--        } else {-->
-<!--          dayData[node.id] = 'М';-->
-<!--        }-->
-<!--      });-->
-
-<!--      batchData.push(dayData);-->
-<!--    }-->
-
-<!--    console.log(`[Custom Data Provider] Сгенерировано ${batchData.length} записей для ${leafNodes.length} колонок`);-->
-<!--    updateDataStatus(`Готово: ${batchData.length} записей для ${leafNodes.length} колонок`);-->
-
-<!--    return { data: batchData };-->
-<!--  };-->
-
-<!--  updateDataStatus('Установлен и готов');-->
-
-<!--  // === ОБРАБОТЧИК КЛИКОВ ===-->
-<!--  let clickCounter = 0;-->
-
-<!--  window.handleCellClick = function(cellData) {-->
-<!--    clickCounter++;-->
-<!--    const time = new Date().toLocaleTimeString();-->
-
-<!--    console.log(`[Click Handler] Клик #${clickCounter}:`, cellData);-->
-
-<!--    // Добавляем запись в лог-->
-<!--    const entry = document.createElement('div');-->
-<!--    entry.className = 'click-entry';-->
-<!--    entry.innerHTML = `-->
-<!--      <strong>#${clickCounter}</strong> ${time} |-->
-<!--      <strong>Дата:</strong> ${cellData.date} |-->
-<!--      <strong>Узел:</strong> ${cellData.node?.name || cellData.nodeId} |-->
-<!--      <strong>Значение:</strong> ${cellData.value}-->
-<!--    `;-->
-
-<!--    // Вставляем в начало лога-->
-<!--    if (clickEntriesEl.children.length === 0 || clickEntriesEl.children[0].textContent.includes('Кликните')) {-->
-<!--      clickEntriesEl.innerHTML = '';-->
-<!--    }-->
-<!--    clickEntriesEl.insertBefore(entry, clickEntriesEl.firstChild);-->
-
-<!--    // Ограничиваем количество записей-->
-<!--    while (clickEntriesEl.children.length > 20) {-->
-<!--      clickEntriesEl.removeChild(clickEntriesEl.lastChild);-->
-<!--    }-->
-
-<!--    // Анализ клика-->
-<!--    if (cellData.value === 'М') {-->
-<!--      console.log('💚 Техобслуживание:', cellData.node?.name);-->
-<!--    } else if (cellData.value === 'О') {-->
-<!--      console.log('🟡 Остановка:', cellData.node?.name);-->
-<!--    } else if (cellData.value === 'П') {-->
-<!--      console.log('🟢 Производство:', cellData.node?.name);-->
-<!--    } else if (cellData.value === 'ПР') {-->
-<!--      console.log('🔵 Простой:', cellData.node?.name);-->
-<!--    } else if (cellData.value === 'Р') {-->
-<!--      console.log('🔴 Ремонт:', cellData.node?.name);-->
-<!--    }-->
-<!--  };-->
-
-<!--  updateClickStatus('Установлен и готов');-->
-
-<!--  // === ПРОВЕРКА ЗАГРУЗКИ ===-->
-<!--  function waitForHeaders() {-->
-<!--    if (checkHeaders()) {-->
-<!--      updateStatus('Заголовки загружены, инициализация компонента...');-->
-<!--      return true;-->
-<!--    }-->
-<!--    return false;-->
-<!--  }-->
-
-<!--  // === ФУНКЦИИ УПРАВЛЕНИЯ ===-->
-<!--  function reloadTable() {-->
-<!--    const table = document.getElementById('table');-->
-<!--    const parent = table.parentNode;-->
-<!--    const newTable = table.cloneNode(true);-->
-<!--    parent.removeChild(table);-->
-<!--    parent.appendChild(newTable);-->
-<!--    updateStatus('Таблица перезагружена');-->
-<!--  }-->
-
-<!--  function toggleDebug() {-->
-<!--    const table = document.getElementById('table');-->
-<!--    const currentDebug = table.getAttribute('debug');-->
-<!--    const newDebug = currentDebug === 'true' ? 'false' : 'true';-->
-<!--    table.setAttribute('debug', newDebug);-->
-<!--    updateStatus(`Отладка: ${newDebug}`);-->
-<!--  }-->
-
-<!--  function clearClickLog() {-->
-<!--    clickEntriesEl.innerHTML = 'Кликните по любой ячейке таблицы...';-->
-<!--    clickCounter = 0;-->
-<!--    updateClickStatus('Лог очищен');-->
-<!--  }-->
-
-<!--  // === ОБРАБОТЧИКИ ЗАГРУЗКИ ===-->
-<!--  function handleScriptLoad() {-->
-<!--    updateStatus('Компонент загружен');-->
-
-<!--    setTimeout(() => {-->
-<!--      if (customElements.get('virtualized-table')) {-->
-<!--        updateStatus('Web component зарегистрирован - готов к работе!');-->
-<!--      } else {-->
-<!--        updateStatus('ОШИБКА: Web component не зарегистрирован');-->
-<!--      }-->
-<!--    }, 500);-->
-<!--  }-->
-
-<!--  // Обработчик общих ошибок-->
-<!--  window.addEventListener('error', (e) => {-->
-<!--    console.error('[Global Error]', e.error);-->
-<!--    updateStatus(`Ошибка: ${e.message}`);-->
-<!--  });-->
-
-<!--  // Слушаем кастомные события кликов-->
-<!--  window.addEventListener('table-cell-click', function(event) {-->
-<!--    const cellData = event.detail;-->
-<!--    console.log('[Custom Event] Событие клика по ячейке:', cellData);-->
-<!--  });-->
-
-<!--  // Проверка готовности DOM-->
-<!--  if (document.readyState === 'loading') {-->
-<!--    document.addEventListener('DOMContentLoaded', () => {-->
-<!--      updateStatus('DOM готов, проверка заголовков...');-->
-<!--      setTimeout(waitForHeaders, 100);-->
-<!--    });-->
-<!--  } else {-->
-<!--    updateStatus('DOM готов, проверка заголовков...');-->
-<!--    setTimeout(waitForHeaders, 100);-->
-<!--  }-->
-
-<!--  // Функция для попытки загрузки с разными путями-->
-<!--  function tryLoadScript() {-->
-<!--    const paths = [-->
-<!--      './dist/virtualized-table.js',-->
-<!--      '/dist/virtualized-table.js',-->
-<!--      '../dist/virtualized-table.js',-->
-<!--      'dist/virtualized-table.js',-->
-<!--      './virtualized-table.js',-->
-<!--      '/public/dist/virtualized-table.js',-->
-<!--      './web-component-table.js'-->
-<!--    ];-->
-
-<!--    function loadWithPath(index = 0) {-->
-<!--      if (index >= paths.length) {-->
-<!--        updateStatus('ОШИБКА: Не удалось найти компонент ни по одному пути');-->
-<!--        return;-->
-<!--      }-->
-
-<!--      const script = document.createElement('script');-->
-<!--      script.src = paths[index];-->
-
-<!--      script.onload = () => {-->
-<!--        console.log(`[Success] Компонент загружен с пути: ${paths[index]}`);-->
-<!--        handleScriptLoad();-->
-<!--      };-->
-
-<!--      script.onerror = () => {-->
-<!--        console.log(`[Failed] Путь не работает: ${paths[index]}`);-->
-<!--        loadWithPath(index + 1);-->
-<!--      };-->
-
-<!--      document.head.appendChild(script);-->
-<!--    }-->
-
-<!--    loadWithPath();-->
-<!--  }-->
-
-<!--  // Проверяем загрузку заголовков перед загрузкой компонента-->
-<!--  let checkAttempts = 0;-->
-<!--  const maxAttempts = 50;-->
-
-<!--  function checkAndLoad() {-->
-<!--    checkAttempts++;-->
-
-<!--    if (waitForHeaders()) {-->
-<!--      // Заголовки загружены, запускаем загрузку компонента-->
-<!--      tryLoadScript();-->
-<!--    } else if (checkAttempts < maxAttempts) {-->
-<!--      // Продолжаем ожидание-->
-<!--      setTimeout(checkAndLoad, 100);-->
-<!--    } else {-->
-<!--      // Превышено время ожидания-->
-<!--      updateStatus('ОШИБКА: Превышено время ожидания загрузки заголовков');-->
-<!--      updateHeaderStatus('ОШИБКА: Файл headers.js не найден или не загружен');-->
-<!--    }-->
-<!--  }-->
-
-<!--  // Запускаем проверку через небольшую задержку-->
-<!--  setTimeout(checkAndLoad, 200);-->
-
-<!--  // Финальная проверка через 5 секунд-->
-<!--  setTimeout(() => {-->
-<!--    const table = document.getElementById('table');-->
-<!--    if (table && table.shadowRoot) {-->
-<!--      updateStatus('Таблица инициализирована успешно!');-->
-
-<!--      // Дополнительная информация-->
-<!--      setTimeout(() => {-->
-<!--        if (window.Headers && window.Headers.headers) {-->
-<!--          const leafNodes = window.Headers.headers.filter(h =>-->
-<!--                  !window.Headers.headers.some(child => child.parentId === h.id)-->
-<!--          );-->
-<!--          updateStatus(`Готово! Листовых колонок: ${leafNodes.length}. Кликайте по ячейкам!`);-->
-<!--        }-->
-<!--      }, 1000);-->
-
-<!--    } else if (table) {-->
-<!--      updateStatus('Элемент найден, но shadow DOM отсутствует');-->
-<!--    } else {-->
-<!--      updateStatus('ОШИБКА: Элемент таблицы не найден');-->
-<!--    }-->
-<!--  }, 5000);-->
-<!--</script>-->
-<!--</body>-->
-<!--</html>-->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -635,7 +221,168 @@
   };
 
   // Создаем алиасы для совместимости
-  window.hp = window.HeadersProvider;
+  // window.hp = window.HeadersProvider;
+  window.hp = function() {
+    console.log('[HeadersProvider] Вызов функции провайдера');
+
+    return {
+      headers: [
+        {
+          id: "factory1",
+          parentId: null,
+          name: "Завод №1 'Металлург'",
+          metadata: {
+            color: "#343434",
+            workCount: 150
+          }
+        },
+        {
+          id: "workshop1",
+          parentId: "factory1",
+          name: "Цех сборки №1",
+          metadata: {
+            color: "#4caf50",
+            workCount: 45
+          }
+        },
+        {
+          id: "line1",
+          parentId: "workshop1",
+          name: "Линия А",
+          metadata: {
+            color: "#ff9800",
+            workCount: 15
+          }
+        },
+        {
+          id: "station1",
+          parentId: "line1",
+          name: "Станция 1",
+          metadata: {
+            color: "#f44336",
+            workCount: 3
+          }
+        },
+        {
+          id: "station2",
+          parentId: "line1",
+          name: "Станция 2",
+          metadata: {
+            color: "#f44336",
+            workCount: 4
+          }
+        },
+        {
+          id: "station3",
+          parentId: "line1",
+          name: "Станция 3",
+          metadata: {
+            color: "#f44336",
+            workCount: 5
+          }
+        },
+        {
+          id: "line2",
+          parentId: "workshop1",
+          name: "Линия Б",
+          metadata: {
+            color: "#ff9800",
+            workCount: 12
+          }
+        },
+        {
+          id: "station4",
+          parentId: "line2",
+          name: "Станция 4",
+          metadata: {
+            color: "#f44336",
+            workCount: 2
+          }
+        },
+        {
+          id: "station5",
+          parentId: "line2",
+          name: "Станция 5",
+          metadata: {
+            color: "#f44336",
+            workCount: 3
+          }
+        },
+        {
+          id: "workshop2",
+          parentId: "factory1",
+          name: "Цех механообработки",
+          metadata: {
+            color: "#4caf50",
+            workCount: 65
+          }
+        },
+        {
+          id: "section1",
+          parentId: "workshop2",
+          name: "Участок токарных работ",
+          metadata: {
+            color: "#9c27b0",
+            workCount: 25
+          }
+        },
+        {
+          id: "machine1",
+          parentId: "section1",
+          name: "Станок ЧПУ-1",
+          metadata: {
+            color: "#795548",
+            workCount: 1
+          }
+        },
+        {
+          id: "machine2",
+          parentId: "section1",
+          name: "Станок ЧПУ-2",
+          metadata: {
+            color: "#795548",
+            workCount: 1
+          }
+        },
+        {
+          id: "factory2",
+          parentId: null,
+          name: "Завод №2 'Электрон'",
+          metadata: {
+            color: "#3f51b5",
+            workCount: 120
+          }
+        },
+        {
+          id: "workshop3",
+          parentId: "factory2",
+          name: "Цех печатных плат",
+          metadata: {
+            color: "#00bcd4",
+            workCount: 35
+          }
+        },
+        {
+          id: "pcb_line1",
+          parentId: "workshop3",
+          name: "Линия ПП-1",
+          metadata: {
+            color: "#e91e63",
+            workCount: 8
+          }
+        },
+        {
+          id: "pcb_line2",
+          parentId: "workshop3",
+          name: "Линия ПП-2",
+          metadata: {
+            color: "#e91e63",
+            workCount: 6
+          }
+        }
+      ]
+    };
+  };
   window.dp = window.customDataProvider;
 
   console.log('[HTML] Провайдеры установлены:');
@@ -652,7 +399,6 @@
   }
 </script>
 
-<!-- Таблица -->
 <virtualized-table
         header-provider-name="HeadersProvider"
         data-provider-name="customDataProvider"
