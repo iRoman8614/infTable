@@ -82,6 +82,24 @@
 </virtualized-table>
 
 <script>
+  function updateDebugInfo() {
+    const statusDiv = document.getElementById('handlers-status');
+    if (statusDiv) {
+      const hasHp = typeof window.hp === 'function';
+      const hasDp = typeof window.dp === 'function';
+      const hasOnTableCellClick = typeof window.onTableCellClick === 'function';
+
+      statusDiv.innerHTML = `
+        <div>window.hp: ${hasHp ? '✅ Загружен' : '❌ Отсутствует'}</div>
+        <div>window.dp: ${hasDp ? '✅ Загружен' : '❌ Отсутствует'}</div>
+        <div>window.onTableCellClick: ${hasOnTableCellClick ? '✅ Загружен' : '❌ Отсутствует'}</div>
+        <div>Время: ${new Date().toLocaleTimeString()}</div>
+      `;
+    }
+  }
+
+  // Обновляем статус каждые 500мс
+  setInterval(updateDebugInfo, 500);
 
   // 1. Async провайдер заголовков
   window.hp = async function() {
@@ -91,18 +109,196 @@
 
     console.log('[ASYNC HP] Заголовки загружены');
     return {
-      headers: [
-        { id: "factory1", parentId: null, name: "Завод №1", metadata: { color: "#343434", workCount: 150 } },
-        { id: "workshop1", parentId: "factory1", name: "Цех 1", metadata: { color: "#4caf50", workCount: 45 } },
-        { id: "line1", parentId: "workshop1", name: "Линия А", metadata: { color: "#ff9800", workCount: 15 } },
-        { id: "station1", parentId: "line1", name: "Станция 1", metadata: { color: "#f44336", workCount: 3 } },
-        { id: "station2", parentId: "line1", name: "Станция 2", metadata: { color: "#f44336", workCount: 4 } },
-        { id: "station3", parentId: "line1", name: "Станция 3", metadata: { color: "#f44336", workCount: 5 } },
-        { id: "line2", parentId: "workshop1", name: "Линия Б", metadata: { color: "#ff9800", workCount: 12 } },
-        { id: "station4", parentId: "line2", name: "Станция 4", metadata: { color: "#f44336", workCount: 2 } },
-        { id: "station5", parentId: "line2", name: "Станция 5", metadata: { color: "#f44336", workCount: 3 } }
+      "headers": [
+        {
+          "id": "factory1",
+          "parentId": null,
+          "type": "node",
+          "name": "Завод №1 'Металлург'",
+          "metadata": {
+            "color": "#343434",
+            "tooltip": "Основной производственный комплекс",
+            "workCount": 150
+          }
+        },
+        {
+          "id": "workshop1",
+          "parentId": "factory1",
+          "type": "assembly",
+          "name": "Цех сборки №1",
+          "metadata": {
+            "color": "#4caf50",
+            "tooltip": "Основной сборочный цех",
+            "workCount": 45
+          }
+        },
+        {
+          "id": "line1",
+          "parentId": "workshop1",
+          "type": "component",
+          "name": "Линия А",
+          "metadata": {
+            "color": "#ff9800",
+            "tooltip": "Автоматизированная линия сборки",
+            "workCount": 15
+          }
+        },
+        {
+          "id": "station1",
+          "parentId": "line1",
+          "type": "component",
+          "name": "Станция 1",
+          "metadata": {
+            "color": "#f44336",
+            "tooltip": "Начальная станция сборки",
+            "workCount": 3
+          }
+        },
+        {
+          "id": "station2",
+          "parentId": "line1",
+          "type": "component",
+          "name": "Станция 2",
+          "metadata": {
+            "color": "#f44336",
+            "tooltip": "Промежуточная станция",
+            "workCount": 4
+          }
+        },
+        {
+          "id": "station3",
+          "parentId": "line1",
+          "type": "component",
+          "name": "Станция 3",
+          "metadata": {
+            "color": "#f44336",
+            "tooltip": "Финальная станция",
+            "workCount": 5
+          }
+        },
+        {
+          "id": "line2",
+          "parentId": "workshop1",
+          "type": "component",
+          "name": "Линия Б",
+          "metadata": {
+            "color": "#ff9800",
+            "tooltip": "Полуавтоматическая линия",
+            "workCount": 12
+          }
+        },
+        {
+          "id": "station4",
+          "parentId": "line2",
+          "type": "component",
+          "name": "Станция 4",
+          "metadata": {
+            "color": "#f44336",
+            "tooltip": "Контрольная станция",
+            "workCount": 2
+          }
+        },
+        {
+          "id": "station5",
+          "parentId": "line2",
+          "type": "component",
+          "name": "Станция 5",
+          "metadata": {
+            "color": "#f44336",
+            "tooltip": "Упаковочная станция",
+            "workCount": 3
+          }
+        },
+        {
+          "id": "workshop2",
+          "parentId": "factory1",
+          "type": "assembly",
+          "name": "Цех механообработки",
+          "metadata": {
+            "color": "#4caf50",
+            "tooltip": "Цех механической обработки деталей",
+            "workCount": 65
+          }
+        },
+        {
+          "id": "section1",
+          "parentId": "workshop2",
+          "type": "component",
+          "name": "Участок токарных работ",
+          "metadata": {
+            "color": "#9c27b0",
+            "tooltip": "Участок токарной обработки",
+            "workCount": 25
+          }
+        },
+        {
+          "id": "machine1",
+          "parentId": "section1",
+          "type": "component",
+          "name": "Станок ЧПУ-1",
+          "metadata": {
+            "color": "#795548",
+            "tooltip": "Токарный станок с ЧПУ",
+            "workCount": 1
+          }
+        },
+        {
+          "id": "machine2",
+          "parentId": "section1",
+          "type": "component",
+          "name": "Станок ЧПУ-2",
+          "metadata": {
+            "color": "#795548",
+            "tooltip": "Фрезерный станок с ЧПУ",
+            "workCount": 1
+          }
+        },
+        {
+          "id": "factory2",
+          "parentId": null,
+          "type": "node",
+          "name": "Завод №2 'Электрон'",
+          "metadata": {
+            "color": "#3f51b5",
+            "tooltip": "Завод электронных компонентов",
+            "workCount": 120
+          }
+        },
+        {
+          "id": "workshop3",
+          "parentId": "factory2",
+          "type": "assembly",
+          "name": "Цех печатных плат",
+          "metadata": {
+            "color": "#00bcd4",
+            "tooltip": "Производство печатных плат",
+            "workCount": 35
+          }
+        },
+        {
+          "id": "pcb_line1",
+          "parentId": "workshop3",
+          "type": "component",
+          "name": "Линия ПП-1",
+          "metadata": {
+            "color": "#e91e63",
+            "tooltip": "Линия производства печатных плат",
+            "workCount": 8
+          }
+        },
+        {
+          "id": "pcb_line2",
+          "parentId": "workshop3",
+          "type": "component",
+          "name": "Линия ПП-2",
+          "metadata": {
+            "color": "#e91e63",
+            "tooltip": "Линия производства сложных плат",
+            "workCount": 6
+          }
+        }
       ]
-    };
+    }
   };
 
   // 2. Async провайдер данных с новой логикой up/down
@@ -167,60 +363,736 @@
   //   return { data };
   // };
   window.dp = async function(startDate, direction, batchSize) {
-    const directionText = direction === 'up' ? 'даты раньше (вверх)' : 'даты позже (вниз)';
-    console.log(`[ASYNC DP] Запрос: ${startDate}, направление: ${direction} (${directionText}), размер: ${batchSize}`);
-
-    await new Promise(resolve => setTimeout(resolve, 250));
-
-    const headerIds = ["station1", "station2", "station3", "station4", "station5"];
-    const values = ["М", "О", "П", "Р"];
-
-    const [day, month, year] = startDate.split('.').map(Number);
-    const baseDate = new Date(Date.UTC(year, month - 1, day));
-
-    const data = [];
-
-    let startDay = 0;
-    let endDay = batchSize;
-
-    if (direction === 'up') {
-      startDay = -batchSize;
-      endDay = 0;
+    //
+    return {
+      "data": [
+        {
+          "date": "10.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М"
+            },
+            {
+              "headerId": "station2",
+              "value": "О"
+            },
+            {
+              "headerId": "station3",
+              "value": "П"
+            },
+            {
+              "headerId": "station4",
+              "value": "Р"
+            },
+            {
+              "headerId": "station5",
+              "value": "П"
+            }
+          ]
+        },
+        {
+          "date": "11.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М"
+            },
+            {
+              "headerId": "station2",
+              "value": "Р"
+            },
+            {
+              "headerId": "station3",
+              "value": "М"
+            },
+            {
+              "headerId": "station4",
+              "value": "О"
+            },
+            {
+              "headerId": "station5",
+              "value": "П"
+            }
+          ]
+        },
+        {
+          "date": "12.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "Р"
+            },
+            {
+              "headerId": "station2",
+              "value": "П"
+            },
+            {
+              "headerId": "station3",
+              "value": "П"
+            },
+            {
+              "headerId": "station4",
+              "value": "М"
+            },
+            {
+              "headerId": "station5",
+              "value": "О"
+            }
+          ]
+        },
+        {
+          "date": "13.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "Р"
+            },
+            {
+              "headerId": "station2",
+              "value": "Р"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "М"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "14.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М"
+            },
+            {
+              "headerId": "station2",
+              "value": "О"
+            },
+            {
+              "headerId": "station3",
+              "value": "П"
+            },
+            {
+              "headerId": "station4",
+              "value": "Р"
+            },
+            {
+              "headerId": "station5",
+              "value": "П"
+            }
+          ]
+        },
+        {
+          "date": "15.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "16.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "17.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "18.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "19.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "20.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "21.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "22.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "23.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "24.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "25.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "26.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "27.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "28.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "29.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "30.09.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П"
+            },
+            {
+              "headerId": "station2",
+              "value": "М"
+            },
+            {
+              "headerId": "station3",
+              "value": "Р"
+            },
+            {
+              "headerId": "station4",
+              "value": "П"
+            },
+            {
+              "headerId": "station5",
+              "value": "Р"
+            }
+          ]
+        },
+        {
+          "date": "01.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М"
+            },
+            {
+              "headerId": "station2",
+              "value": "О"
+            },
+            {
+              "headerId": "station3",
+              "value": "П"
+            },
+            {
+              "headerId": "station4",
+              "value": "Р"
+            },
+            {
+              "headerId": "station5",
+              "value": "П"
+            }
+          ]
+        },
+        {
+          "date": "02.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М"
+            },
+            {
+              "headerId": "station2",
+              "value": "О"
+            },
+            {
+              "headerId": "station3",
+              "value": "П"
+            },
+            {
+              "headerId": "station4",
+              "value": "Р"
+            },
+            {
+              "headerId": "station5",
+              "value": "П"
+            }
+          ]
+        },
+        {
+          "date": "03.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М"
+            },
+            {
+              "headerId": "station2",
+              "value": "О"
+            },
+            {
+              "headerId": "station3",
+              "value": "П"
+            },
+            {
+              "headerId": "station4",
+              "value": "Р"
+            },
+            {
+              "headerId": "station5",
+              "value": "П"
+            }
+          ]
+        },
+        {
+          "date": "04.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М"
+            },
+            {
+              "headerId": "station2",
+              "value": "О"
+            },
+            {
+              "headerId": "station3",
+              "value": "П"
+            },
+            {
+              "headerId": "station4",
+              "value": "Р"
+            },
+            {
+              "headerId": "station5",
+              "value": "П"
+            }
+          ]
+        },
+        {
+          "date": "05.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М"
+            },
+            {
+              "headerId": "station2",
+              "value": "О"
+            },
+            {
+              "headerId": "station3",
+              "value": "П"
+            },
+            {
+              "headerId": "station4",
+              "value": "Р"
+            },
+            {
+              "headerId": "station5",
+              "value": "П"
+            }
+          ]
+        },
+        {
+          "date": "06.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М"
+            },
+            {
+              "headerId": "station2",
+              "value": "О"
+            },
+            {
+              "headerId": "station3",
+              "value": "П"
+            },
+            {
+              "headerId": "station4",
+              "value": "Р"
+            },
+            {
+              "headerId": "station5",
+              "value": "П"
+            }
+          ]
+        },
+        {
+          "date": "07.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М"
+            },
+            {
+              "headerId": "station2",
+              "value": "О"
+            },
+            {
+              "headerId": "station3",
+              "value": "П"
+            },
+            {
+              "headerId": "station4",
+              "value": "Р"
+            },
+            {
+              "headerId": "station5",
+              "value": "П"
+            }
+          ]
+        },
+        {
+          "date": "08.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М"
+            },
+            {
+              "headerId": "station2",
+              "value": "О"
+            },
+            {
+              "headerId": "station3",
+              "value": "П"
+            },
+            {
+              "headerId": "station4",
+              "value": "Р"
+            },
+            {
+              "headerId": "station5",
+              "value": "П"
+            }
+          ]
+        },
+      ]
     }
-
-    for (let i = startDay; i < endDay; i++) {
-      const currentDate = new Date(baseDate);
-      currentDate.setUTCDate(baseDate.getUTCDate() + i);
-
-      const dateStr = currentDate.toLocaleDateString('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-
-      const columns = headerIds.map(headerId => ({
-        headerId: headerId,
-        value: values[Math.floor(Math.random() * values.length)]
-      }));
-
-      data.push({
-        date: dateStr,
-        columns: columns
-      });
-    }
-
-    if (direction === 'up') {
-      data.sort((a, b) => {
-        const [dayA, monthA, yearA] = a.date.split('.').map(Number);
-        const [dayB, monthB, yearB] = b.date.split('.').map(Number);
-        const dateA = new Date(yearA, monthA - 1, dayA);
-        const dateB = new Date(yearB, monthB - 1, dayB);
-        return dateA - dateB;
-      });
-    }
-
-    console.log(`[ASYNC DP] Возвращено ${data.length} записей (${directionText})`);
-    return { "data": data };
   };
 
 
@@ -276,6 +1148,27 @@
 
     } catch (error) {
       console.error('[ASYNC КЛИК] Ошибка:', error);
+      throw error;
+    }
+  };
+
+  window.onTableCellClick = async function(cellData) {
+    console.log(`🎯 [CLICK HANDLER] Обрабатываем клик:`, cellData);
+    updateDebugInfo(); // Обновляем отладку
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const result = {
+        date: cellData.date,
+        columnId: cellData.nodeId
+      };
+
+      console.log('✅ [CLICK HANDLER] Результат обработки:', result);
+      return result;
+
+    } catch (error) {
+      console.error('❌ [CLICK HANDLER] Ошибка:', error);
       throw error;
     }
   };
