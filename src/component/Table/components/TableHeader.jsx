@@ -1,6 +1,6 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
-// Встроенная функция контрастного цвета
+// Встроенная функция контрастного цвета (мемоизированная)
 const getContrastTextColor = (backgroundColor) => {
     if (!backgroundColor || backgroundColor === 'transparent') return '#000';
 
@@ -16,15 +16,14 @@ const getContrastTextColor = (backgroundColor) => {
 };
 
 /**
- * Компонент заголовка таблицы с отладкой
+ * Оптимизированный компонент заголовка таблицы
  */
-export const TableHeader = ({
-                                treeStructure,
-                                nodeVisibility,
-                                activeColorTheme
-                            }) => {
-
-    // Проверка полной видимости узла
+export const TableHeader = React.memo(({
+                                           treeStructure,
+                                           nodeVisibility,
+                                           activeColorTheme
+                                       }) => {
+    // Мемоизированная проверка полной видимости узла
     const isNodeFullyVisible = useCallback((nodeId) => {
         if (!nodeVisibility || typeof nodeVisibility !== 'object') {
             return true; // По умолчанию считаем видимым
@@ -44,7 +43,7 @@ export const TableHeader = ({
         return true;
     }, [nodeVisibility, treeStructure.nodesMap]);
 
-    // Функция расчета colspan
+    // Мемоизированная функция расчета colspan
     const calculateColspan = useCallback((node) => {
         if (!node) {
             return 0;
@@ -59,7 +58,7 @@ export const TableHeader = ({
         return colspan;
     }, [isNodeFullyVisible]);
 
-    // Фильтрация видимых узлов для заголовка
+    // Мемоизированная фильтрация видимых узлов
     const filterVisibleNodes = useCallback((nodes) => {
         if (!Array.isArray(nodes)) {
             return [];
@@ -86,18 +85,25 @@ export const TableHeader = ({
         return filtered;
     }, [isNodeFullyVisible]);
 
-    // Рендер строк заголовка с отладкой
-    const renderHeaderRows = useCallback(() => {
+    // Мемоизированное видимое дерево
+    const visibleTree = useMemo(() => {
         if (!treeStructure || !treeStructure.tree || !Array.isArray(treeStructure.tree)) {
             return [];
         }
+        return filterVisibleNodes(treeStructure.tree);
+    }, [treeStructure.tree, filterVisibleNodes]);
 
-        const rows = [];
-        const visibleTree = filterVisibleNodes(treeStructure.tree);
+    // Мемоизированный рендер строк заголовка
+    const headerRows = useMemo(() => {
+        if (!treeStructure || visibleTree.length === 0) {
+            return [];
+        }
 
+        console.log('[TableHeader] Пересчет строк заголовка');
         console.log('[TableHeader] Видимое дерево:', visibleTree);
         console.log('[TableHeader] Максимальная глубина:', treeStructure.maxDepth);
 
+        const rows = [];
         let currentLevelNodes = visibleTree;
         let depth = 1;
 
@@ -176,22 +182,29 @@ export const TableHeader = ({
 
             currentLevelNodes = filterVisibleNodes(nextLevelNodes);
             depth++;
-
         }
 
         return rows;
-    }, [treeStructure, filterVisibleNodes, calculateColspan, isNodeFullyVisible, activeColorTheme]);
+    }, [
+        treeStructure,
+        visibleTree,
+        calculateColspan,
+        isNodeFullyVisible,
+        activeColorTheme,
+        filterVisibleNodes
+    ]);
 
-    const headerRows = renderHeaderRows();
+    // Мемоизированный стиль заголовка
+    const headerStyle = useMemo(() => ({
+        position: 'sticky',
+        top: 0,
+        backgroundColor: activeColorTheme("BGHeader"),
+        zIndex: 10
+    }), [activeColorTheme]);
 
     return (
-        <thead style={{
-            position: 'sticky',
-            top: 0,
-            backgroundColor: activeColorTheme("BGHeader"),
-            zIndex: 10
-        }}>
+        <thead style={headerStyle}>
         {headerRows}
         </thead>
     );
-};
+});
