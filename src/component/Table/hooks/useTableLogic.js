@@ -7,7 +7,7 @@ import { smartThrottle } from '../utils/performanceUtils.js';
  * Хук для управления логикой виртуализированной таблицы с направлениями up/down
  */
 export const useTableLogic = ({
-                                  scrollBatchSize = 7,
+                                  scrollBatchSize = 14,
                                   dataProvider = null,
                                   onDataLoad = null,
                                   onError = null,
@@ -35,7 +35,7 @@ export const useTableLogic = ({
 
     // Константы
     const rowHeight = 40;
-    const bufferSize = 20;
+    const bufferSize = 5;
 
     // Сегодняшняя дата
     const today = useMemo(() => {
@@ -74,6 +74,83 @@ export const useTableLogic = ({
     }, [today, scrollBatchSize]);
 
     // Загрузка батча данных с новой логикой up/down
+    // const loadBatch = useCallback(async (startDate, direction, batchSize) => {
+    //     const batchKey = `${startDate}+${direction}+${batchSize}`;
+    //
+    //     if (fetchingPromises.current[batchKey] || loadingBatches.has(batchKey)) {
+    //         return fetchingPromises.current[batchKey];
+    //     }
+    //
+    //     setLoadingBatches(prev => new Set([...prev, batchKey]));
+    //
+    //     // Получаем активный провайдер данных
+    //     const activeDataProvider = dataProvider || getDataProvider();
+    //
+    //     const promise = (async () => {
+    //         try {
+    //             const directionText = direction === 'up' ? 'даты раньше (вверх)' : 'даты позже (вниз)';
+    //             console.log(`[useTableLogic] Загружаем батч: ${startDate}, направление: ${direction} (${directionText}), размер: ${batchSize}`);
+    //
+    //             // Вызываем новый async API с направлением up/down
+    //             const batchData = await activeDataProvider(startDate, direction, batchSize);
+    //
+    //             // Проверяем формат данных
+    //             if (!batchData || !batchData.data || !Array.isArray(batchData.data)) {
+    //                 throw new Error('Провайдер данных вернул некорректный формат');
+    //             }
+    //
+    //             // Проверяем формат первой записи
+    //             if (batchData.data.length > 0) {
+    //                 const firstRecord = batchData.data[0];
+    //                 if (!firstRecord.columns || !Array.isArray(firstRecord.columns)) {
+    //                     console.warn('[useTableLogic] Получены данные в старом формате, преобразуем...');
+    //                 }
+    //             }
+    //
+    //             // Преобразуем новый формат в старый для внутренней совместимости
+    //             const transformedData = transformDataFormat(batchData);
+    //
+    //             // Обновляем кеш данных
+    //             setDataCache(prev => {
+    //                 const updated = { ...prev };
+    //                 if (transformedData && transformedData.data) {
+    //                     transformedData.data.forEach(dayData => {
+    //                         updated[dayData.date] = dayData;
+    //                     });
+    //                 }
+    //                 return updated;
+    //             });
+    //
+    //             if (onDataLoad && transformedData && transformedData.data) {
+    //                 onDataLoad(transformedData.data, startDate, batchSize);
+    //             }
+    //
+    //             console.log(`[useTableLogic] Батч загружен: ${transformedData.data?.length || 0} записей (${directionText})`);
+    //             return transformedData;
+    //
+    //         } catch (error) {
+    //             console.error('[useTableLogic] Ошибка загрузки данных:', error);
+    //             if (onError) {
+    //                 onError(error, { startDate, direction, batchSize });
+    //             }
+    //             throw error;
+    //         }
+    //     })();
+    //
+    //     promise.finally(() => {
+    //         setLoadingBatches(prev => {
+    //             const updated = new Set(prev);
+    //             updated.delete(batchKey);
+    //             return updated;
+    //         });
+    //         delete fetchingPromises.current[batchKey];
+    //     });
+    //
+    //     fetchingPromises.current[batchKey] = promise;
+    //     return promise;
+    // }, [loadingBatches, dataProvider, onDataLoad, onError]);
+
+    // Загрузка батча данных с новой логикой up/down
     const loadBatch = useCallback(async (startDate, direction, batchSize) => {
         const batchKey = `${startDate}+${direction}+${batchSize}`;
 
@@ -94,21 +171,23 @@ export const useTableLogic = ({
                 // Вызываем новый async API с направлением up/down
                 const batchData = await activeDataProvider(startDate, direction, batchSize);
 
-                // Проверяем формат данных
-                if (!batchData || !batchData.data || !Array.isArray(batchData.data)) {
-                    throw new Error('Провайдер данных вернул некорректный формат');
+                // Проверяем формат данных - теперь ожидаем строковый ключ "data"
+                if (!batchData || !batchData["data"] || !Array.isArray(batchData["data"])) {
+                    throw new Error('Провайдер данных вернул некорректный формат - ожидается {"data": [...]}');
                 }
 
                 // Проверяем формат первой записи
-                if (batchData.data.length > 0) {
-                    const firstRecord = batchData.data[0];
+                if (batchData["data"].length > 0) {
+                    const firstRecord = batchData["data"][0];
                     if (!firstRecord.columns || !Array.isArray(firstRecord.columns)) {
                         console.warn('[useTableLogic] Получены данные в старом формате, преобразуем...');
                     }
                 }
 
                 // Преобразуем новый формат в старый для внутренней совместимости
-                const transformedData = transformDataFormat(batchData);
+                // Создаем объект с обычным свойством data для transformDataFormat
+                const dataForTransform = { data: batchData["data"] };
+                const transformedData = transformDataFormat(dataForTransform);
 
                 // Обновляем кеш данных
                 setDataCache(prev => {

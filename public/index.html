@@ -106,6 +106,66 @@
   };
 
   // 2. Async провайдер данных с новой логикой up/down
+  // window.dp = async function(startDate, direction, batchSize) {
+  //   const directionText = direction === 'up' ? 'даты раньше (вверх)' : 'даты позже (вниз)';
+  //   console.log(`[ASYNC DP] Запрос: ${startDate}, направление: ${direction} (${directionText}), размер: ${batchSize}`);
+  //
+  //   await new Promise(resolve => setTimeout(resolve, 250));
+  //
+  //   const headerIds = ["station1", "station2", "station3", "station4", "station5"];
+  //   const values = ["М", "О", "П", "Р"];
+  //
+  //   const [day, month, year] = startDate.split('.').map(Number);
+  //   const baseDate = new Date(Date.UTC(year, month - 1, day));
+  //
+  //   const data = [];
+  //
+  //   let startDay = 0;
+  //   let endDay = batchSize;
+  //
+  //   if (direction === 'up') {
+  //     startDay = -batchSize;
+  //     endDay = 0;
+  //   }
+  //
+  //   for (let i = startDay; i < endDay; i++) {
+  //     const currentDate = new Date(baseDate);
+  //     currentDate.setUTCDate(baseDate.getUTCDate() + i);
+  //
+  //     const dateStr = currentDate.toLocaleDateString('ru-RU', {
+  //       day: '2-digit',
+  //       month: '2-digit',
+  //       year: 'numeric'
+  //     });
+  //
+  //     const columns = headerIds.map(headerId => ({
+  //       headerId: headerId,
+  //       value: values[Math.floor(Math.random() * values.length)]
+  //     }));
+  //
+  //     data.push({
+  //       date: dateStr,
+  //       columns: columns
+  //     });
+  //   }
+  //
+  //   console.log("data", data)
+  //
+  //   if (direction === 'up') {
+  //     data.sort((a, b) => {
+  //       const [dayA, monthA, yearA] = a.date.split('.').map(Number);
+  //       const [dayB, monthB, yearB] = b.date.split('.').map(Number);
+  //       const dateA = new Date(yearA, monthA - 1, dayA);
+  //       const dateB = new Date(yearB, monthB - 1, dayB);
+  //       return dateA - dateB;
+  //     });
+  //   }
+  //
+  //   console.log("data2up", data)
+  //
+  //   console.log(`[ASYNC DP] Возвращено ${data.length} записей (${directionText}), data (${data})`);
+  //   return { data };
+  // };
   window.dp = async function(startDate, direction, batchSize) {
     const directionText = direction === 'up' ? 'даты раньше (вверх)' : 'даты позже (вниз)';
     console.log(`[ASYNC DP] Запрос: ${startDate}, направление: ${direction} (${directionText}), размер: ${batchSize}`);
@@ -160,32 +220,55 @@
     }
 
     console.log(`[ASYNC DP] Возвращено ${data.length} записей (${directionText})`);
-    return { data };
+    return { "data": data };
   };
 
-  // 3. Async обработчик кликов с расширенной информацией
-  window.onTableCellClick = async function(cellData) {
-    const statusNames = {
-      'М': 'Модификация',
-      'О': 'Остановлен',
-      'П': 'Простой',
-      'Р': 'Работает'
-    };
 
-    console.log(`[ASYNC КЛИК] Обрабатываем: ${cellData.date} / ${cellData.nodeId} / ${cellData.value} (${statusNames[cellData.value] || 'Неизвестно'})`);
+  // 3. Async обработчик кликов с расширенной информацией
+  // window.onTableCellClick = async function(cellData) {
+  //   const statusNames = {
+  //     'М': 'Модификация',
+  //     'О': 'Остановлен',
+  //     'П': 'Простой',
+  //     'Р': 'Работает'
+  //   };
+  //
+  //   console.log(`[ASYNC КЛИК] Обрабатываем: ${cellData.date} / ${cellData.nodeId} / ${cellData.value} (${statusNames[cellData.value] || 'Неизвестно'})`);
+  //
+  //   try {
+  //     await new Promise(resolve => setTimeout(resolve, 300));
+  //
+  //     const result = {
+  //       processed: true,
+  //       timestamp: new Date().toISOString(),
+  //       cellInfo: {
+  //         date: cellData.date,
+  //         nodeId: cellData.nodeId,
+  //         value: cellData.value,
+  //         statusName: statusNames[cellData.value] || 'Неизвестно'
+  //       }
+  //     };
+  //
+  //     console.log('[ASYNC КЛИК] Результат обработки:', result);
+  //     return result;
+  //
+  //   } catch (error) {
+  //     console.error('[ASYNC КЛИК] Ошибка:', error);
+  //     throw error;
+  //   }
+  // };
+
+
+  //варивант 2
+  window.onTableCellClick = async function(cellData) {
+    console.log(`[ASYNC КЛИК] Обрабатываем: ${cellData.date} / ${cellData.nodeId}`);
 
     try {
       await new Promise(resolve => setTimeout(resolve, 300));
 
       const result = {
-        processed: true,
-        timestamp: new Date().toISOString(),
-        cellInfo: {
-          date: cellData.date,
-          nodeId: cellData.nodeId,
-          value: cellData.value,
-          statusName: statusNames[cellData.value] || 'Неизвестно'
-        }
+        date: cellData.date,
+        columnId: cellData.nodeId
       };
 
       console.log('[ASYNC КЛИК] Результат обработки:', result);
