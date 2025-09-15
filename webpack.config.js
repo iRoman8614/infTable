@@ -34,7 +34,7 @@ module.exports = {
         extensions: ['.js', '.jsx']
     },
     optimization: {
-        // minimize: false // для читаемости
-        minimize: true
+        minimize: false // для читаемости
+        //minimize: true
     }
 };
