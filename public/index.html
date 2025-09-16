@@ -82,25 +82,6 @@
 </virtualized-table>
 
 <script>
-  function updateDebugInfo() {
-    const statusDiv = document.getElementById('handlers-status');
-    if (statusDiv) {
-      const hasHp = typeof window.hp === 'function';
-      const hasDp = typeof window.dp === 'function';
-      const hasOnTableCellClick = typeof window.onTableCellClick === 'function';
-
-      statusDiv.innerHTML = `
-        <div>window.hp: ${hasHp ? '✅ Загружен' : '❌ Отсутствует'}</div>
-        <div>window.dp: ${hasDp ? '✅ Загружен' : '❌ Отсутствует'}</div>
-        <div>window.onTableCellClick: ${hasOnTableCellClick ? '✅ Загружен' : '❌ Отсутствует'}</div>
-        <div>Время: ${new Date().toLocaleTimeString()}</div>
-      `;
-    }
-  }
-
-  // Обновляем статус каждые 500мс
-  setInterval(updateDebugInfo, 500);
-
   // 1. Async провайдер заголовков
   window.hp = async function() {
     console.log('[ASYNC HP] Загрузка заголовков...');
@@ -1042,23 +1023,28 @@
           "columns": [
             {
               "headerId": "station1",
-              "value": "М"
+              "value": "М",
+              "color": "red"
             },
             {
               "headerId": "station2",
-              "value": "О"
+              "value": "О",
+              "color": "red"
             },
             {
               "headerId": "station3",
-              "value": "П"
+              "value": "П",
+              "color": "red"
             },
             {
               "headerId": "station4",
-              "value": "Р"
+              "value": "Р",
+              "color": "red"
             },
             {
               "headerId": "station5",
-              "value": "П"
+              "value": "П",
+              "color": "red"
             }
           ]
         },
@@ -1067,7 +1053,8 @@
           "columns": [
             {
               "headerId": "station1",
-              "value": "М"
+              "value": "М",
+              "color": "red"
             },
             {
               "headerId": "station2",
@@ -1767,27 +1754,6 @@
 
     return JSON.stringify(data);
   };
-
-  // // 3. Async обработчик кликов с расширенной информацией
-  // window.onTableCellClick = async function(cellData) {
-  //   updateDebugInfo();
-  //
-  //   try {
-  //     await new Promise(resolve => setTimeout(resolve, 300));
-  //
-  //     const result = {
-  //       date: cellData.date,
-  //       columnId: cellData.columnId
-  //     };
-  //
-  //     console.log('✅ [CLICK HANDLER] Результат обработки:', result);
-  //     return result;
-  //
-  //   } catch (error) {
-  //     console.error('❌ [CLICK HANDLER] Ошибка:', error);
-  //     throw error;
-  //   }
-  // };
 
   // Загрузка компонента
   const script = document.createElement('script');
