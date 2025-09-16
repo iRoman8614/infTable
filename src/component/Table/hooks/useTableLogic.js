@@ -486,6 +486,67 @@ export const useTableLogic = ({
     // Создаем processedCache на лету из visibleData для совместимости
     const processedCache = useMemo(() => visibleData, [visibleData]);
 
+    // const refreshViewport = useCallback(async () => {
+    //     // 1. Получаем текущий видимый диапазон
+    //     const { start, end } = visibleRange;
+    //     const currentVisibleDates = dates.slice(start, end);
+    //
+    //     // 2. Очищаем данные viewport из памяти
+    //     setVisibleData(prev => {
+    //         const cleaned = { ...prev };
+    //         currentVisibleDates.forEach(date => {
+    //             delete cleaned[date];
+    //         });
+    //         return cleaned;
+    //     });
+    //
+    //     // 3. Принудительно перезапрашиваем данные батчами по 20
+    //     const batchCount = Math.ceil(currentVisibleDates.length / batchSize);
+    //     for (let i = 0; i < batchCount; i++) {
+    //         await loadBatch(batchStartDate, 'down', batchSize);
+    //     }
+    // }, [visibleRange, dates, loadBatch]);
+
+    const refreshViewport = useCallback(async () => {
+        const { start, end } = visibleRange;
+        const currentVisibleDates = dates.slice(start, end);
+
+        console.log(`[RefreshViewport] Принудительное обновление viewport: ${currentVisibleDates.length} дат`);
+
+        // Очищаем текущие данные viewport
+        setVisibleData(prev => {
+            const cleaned = { ...prev };
+            currentVisibleDates.forEach(date => {
+                delete cleaned[date];
+            });
+            return cleaned;
+        });
+
+        // Очищаем состояние загрузки
+        setLoadingDates(prev => {
+            const updated = new Set(prev);
+            currentVisibleDates.forEach(date => updated.delete(date));
+            return updated;
+        });
+
+        // Принудительно перезапрашиваем данные
+        if (currentVisibleDates.length > 0) {
+            const firstDate = currentVisibleDates[0];
+            const batchCount = Math.ceil(currentVisibleDates.length / batchSize);
+
+            const refreshPromises = [];
+            for (let i = 0; i < batchCount; i++) {
+                const batchStartDate = dates[start + (i * batchSize)];
+                if (batchStartDate) {
+                    refreshPromises.push(loadBatch(batchStartDate, 'down', batchSize));
+                }
+            }
+
+            await Promise.allSettled(refreshPromises);
+            console.log(`[RefreshViewport] Viewport обновлен: ${refreshPromises.length} батчей перезагружено`);
+        }
+    }, [visibleRange, dates, loadBatch]);
+
     return {
         dates,
         processedCache, // Для обратной совместимости
@@ -501,6 +562,7 @@ export const useTableLogic = ({
         rowHeight,
         bufferSize,
         handleScroll,
-        loadBatch
+        loadBatch,
+        refreshViewport
     };
 };

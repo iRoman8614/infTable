@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, {useState, useMemo, useCallback, useEffect} from 'react';
 import { TableHeader } from './components/TableHeader.jsx';
 import { FiltersPanel } from './components/FiltersPanel.jsx';
 import { useTableLogic } from './hooks/useTableLogic.js';
@@ -7,9 +7,6 @@ import { useDragAndDrop } from './hooks/useDragAndDrop.js';
 import { parseDateString } from './utils/dateUtils.js';
 import { useHeadersLoader, useGlobalClickHandlers } from './hooks/useTableHelpers.js';
 
-/**
- * VIRTUALIZED TABLE COMPONENT с drag & drop
- */
 export const Table = ({
                           maxWidth = '100%',
                           maxHeight = '600px',
@@ -101,6 +98,16 @@ export const Table = ({
         onError,
         treeStructure
     });
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && tableLogic.refreshViewport) {
+            window.refreshTableViewport = tableLogic.refreshViewport;
+
+            return () => {
+                delete window.refreshTableViewport;
+            };
+        }
+    }, [tableLogic.refreshViewport]);
 
     const nodeVisibilityLogic = useNodeVisibility(treeStructure);
 
@@ -356,7 +363,7 @@ export const Table = ({
                                         <td
                                             key={`${dateString}-${leafNode.id}`}
                                             draggable={editMode}
-                                            onDoubleClick={hasClickHandlers && !editMode ? (event) => {
+                                            onDoubleClick={hasClickHandlers && editMode ? (event) => {
                                                 console.log('[Table] Cell double-clicked, calling handler');
                                                 handleCellClick(dateString, leafNode.id, cellValue, event);
                                             } : undefined}
