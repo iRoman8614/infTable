@@ -12,11 +12,9 @@ export const useHeadersLoader = (headerProvider) => {
 
     const loadHeaders = useCallback(async () => {
         if (loadedRef.current && lastProviderRef.current === headerProvider) {
-            console.log('[HeadersLoader] Заголовки уже загружены, пропускаем');
             return;
         }
 
-        console.log('[HeadersLoader] Начинаем загрузку заголовков...');
         setIsLoading(true);
         setHeadersError(null);
 
@@ -24,7 +22,6 @@ export const useHeadersLoader = (headerProvider) => {
             let structure = null;
 
             if (headerProvider && typeof headerProvider === 'function') {
-                console.log('[HeadersLoader] Используем переданный headerProvider');
 
                 if (headerProvider.constructor.name === 'AsyncFunction') {
                     structure = await headerProvider();
@@ -33,7 +30,6 @@ export const useHeadersLoader = (headerProvider) => {
                 }
 
                 if (structure && structure.headers && Array.isArray(structure.headers)) {
-                    console.log(`[HeadersLoader] Загружены заголовки: ${structure.headers.length} элементов`);
                     setHeadersData(structure);
                     loadedRef.current = true;
                     lastProviderRef.current = headerProvider;
@@ -43,8 +39,6 @@ export const useHeadersLoader = (headerProvider) => {
 
             if (!headerProvider && typeof window !== 'undefined') {
                 if (window.HeadersProvider && typeof window.HeadersProvider === 'function') {
-                    console.log('[HeadersLoader] Используем window.HeadersProvider');
-
                     if (window.HeadersProvider.constructor.name === 'AsyncFunction') {
                         structure = await window.HeadersProvider();
                     } else {
@@ -52,7 +46,6 @@ export const useHeadersLoader = (headerProvider) => {
                     }
 
                     if (structure && structure.headers && Array.isArray(structure.headers)) {
-                        console.log(`[HeadersLoader] Загружены заголовки из window: ${structure.headers.length} элементов`);
                         setHeadersData(structure);
                         loadedRef.current = true;
                         lastProviderRef.current = null;
@@ -61,8 +54,6 @@ export const useHeadersLoader = (headerProvider) => {
                 }
 
                 if (window.hp && typeof window.hp === 'function') {
-                    console.log('[HeadersLoader] Используем window.hp');
-
                     if (window.hp.constructor.name === 'AsyncFunction') {
                         structure = await window.hp();
                     } else {
@@ -70,7 +61,6 @@ export const useHeadersLoader = (headerProvider) => {
                     }
 
                     if (structure && structure.headers && Array.isArray(structure.headers)) {
-                        console.log(`[HeadersLoader] Загружены заголовки из hp: ${structure.headers.length} элементов`);
                         setHeadersData(structure);
                         loadedRef.current = true;
                         lastProviderRef.current = null;
@@ -79,7 +69,6 @@ export const useHeadersLoader = (headerProvider) => {
                 }
             }
 
-            console.log('[HeadersLoader] Используем заголовки по умолчанию');
             setHeadersData();
             loadedRef.current = true;
             lastProviderRef.current = headerProvider;

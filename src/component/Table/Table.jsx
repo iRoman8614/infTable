@@ -51,8 +51,6 @@ export const Table = ({
 
     // Структура дерева заголовков (мемоизирована)
     const treeStructure = useMemo(() => {
-        console.log('[Table] Построение структуры дерева...');
-
         if (!headersData || !headersData.headers || !Array.isArray(headersData.headers)) {
             console.warn('[Table] Некорректные данные заголовков:', headersData);
             return { tree: [], maxDepth: 1, leafNodes: [], nodesMap: new Map() };
@@ -92,7 +90,6 @@ export const Table = ({
         };
         tree.forEach(findLeaves);
 
-        console.log(`[Table] Дерево построено: глубина=${maxDepth}, листьев=${leafNodes.length}`);
         return { tree, maxDepth, leafNodes, nodesMap };
     }, [headersData]);
 
@@ -359,8 +356,8 @@ export const Table = ({
                                         <td
                                             key={`${dateString}-${leafNode.id}`}
                                             draggable={editMode}
-                                            onClick={hasClickHandlers && !editMode ? (event) => {
-                                                console.log('[Table] Cell clicked, calling handler');
+                                            onDoubleClick={hasClickHandlers && !editMode ? (event) => {
+                                                console.log('[Table] Cell double-clicked, calling handler');
                                                 handleCellClick(dateString, leafNode.id, cellValue, event);
                                             } : undefined}
                                             onDragStart={editMode ? (e) => dragDropHandlers.handleDragStart(e, dateString, leafNode.id, cellValue) : undefined}

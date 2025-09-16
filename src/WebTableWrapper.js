@@ -25,7 +25,7 @@ const TableWrapper = ({
 
     // Обработчик клика
     const handleCellClick = useCallback((cellData) => {
-        console.log('[TableWrapper] Клик по ячейке:', cellData);
+        console.log('[TableWrapper] Двойной клик по ячейке:', cellData);
 
         // Пробуем найти обработчик
         if (onCellClickHandler && window[onCellClickHandler]) {
@@ -43,7 +43,7 @@ const TableWrapper = ({
         }
 
         // Кастомное событие
-        const customEvent = new CustomEvent('table-cell-click', {
+        const customEvent = new CustomEvent('table-cell-double-click', {
             detail: cellData,
             bubbles: true
         });
@@ -124,7 +124,6 @@ customElements.define('virtualized-table', TableWebComponent);
 if (typeof window !== 'undefined') {
     window.checkTableComponent = function() {
         const isRegistered = customElements.get('virtualized-table');
-        console.log('virtualized-table зарегистрирован:', !!isRegistered);
         return !!isRegistered;
     };
 }

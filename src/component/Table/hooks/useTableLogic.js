@@ -32,20 +32,19 @@ const processSimpleTableData = (dataArray, leafNodes) => {
 };
 
 /**
- * Хук для управления логикой виртуализированной таблицы с направлениями
+ * Хук для управления логикой виртуализированной таблицы БЕЗ КЕШЕЙ
  */
 export const useTableLogic = ({
-                                  scrollBatchSize = 10,
+                                  scrollBatchSize = 20, // Фиксированный размер батча
                                   dataProvider = null,
                                   onDataLoad = null,
                                   onError = null,
                                   treeStructure
                               }) => {
-    // Основные состояния
+    // Основные состояния (БЕЗ КЕШЕЙ)
     const [dates, setDates] = useState([]);
-    const [dataCache, setDataCache] = useState({});
-    const [processedCache, setProcessedCache] = useState({});
-    const [loadingBatches, setLoadingBatches] = useState(new Set());
+    const [visibleData, setVisibleData] = useState({}); // Только видимые данные
+    const [loadingDates, setLoadingDates] = useState(new Set());
     const [isInitialized, setIsInitialized] = useState(false);
 
     // Состояния viewport
@@ -55,16 +54,15 @@ export const useTableLogic = ({
     // Refs
     const containerRef = useRef(null);
     const fetchingPromises = useRef({});
-    const loadedRanges = useRef(new Set());
     const scrollVelocity = useRef(0);
     const lastScrollTime = useRef(0);
     const lastScrollTop = useRef(0);
     const isScrollCompensating = useRef(false);
-    const pendingRecalculation = useRef(null);
 
     // Константы
     const rowHeight = 40;
-    const bufferSize = 2;
+    const bufferSize = 2;               // Буфер для visibleRange
+    const batchSize = 20;        // Фиксированный размер батча
 
     // Сегодняшняя дата
     const today = useMemo(() => {
@@ -73,10 +71,10 @@ export const useTableLogic = ({
         return date;
     }, []);
 
-    // Видимый диапазон
+    // Видимый диапазон с учетом фиксированного размера батча
     const visibleRange = useMemo(() => {
         if (!containerHeight || dates.length === 0) {
-            return { start: 0, end: Math.max(dates.length, scrollBatchSize * 2) };
+            return { start: 0, end: Math.max(dates.length, batchSize * 2) };
         }
 
         const visibleStart = Math.floor(scrollTop / rowHeight);
@@ -86,12 +84,12 @@ export const useTableLogic = ({
         const end = Math.min(dates.length, visibleEnd + bufferSize);
 
         return { start, end };
-    }, [scrollTop, containerHeight, dates.length, rowHeight, bufferSize, scrollBatchSize]);
+    }, [scrollTop, containerHeight, dates.length, rowHeight, bufferSize]);
 
-    // Генерация начальных дат
+    // Генерация начальных дат с учетом фиксированного размера батча
     const generateInitialDates = useCallback(() => {
         const initialDates = [];
-        const daysAround = Math.floor(scrollBatchSize * 4);
+        const daysAround = Math.floor(batchSize * 2); // 40 дней вокруг сегодня
 
         for (let i = -daysAround; i <= daysAround; i++) {
             const date = new Date(today);
@@ -100,57 +98,21 @@ export const useTableLogic = ({
         }
 
         return initialDates;
-    }, [today, scrollBatchSize]);
+    }, [today]);
 
-    // Создание уникального ключа для диапазона дат
-    const createRangeKey = useCallback((startDate, endDate, direction) => {
-        return `${startDate}:${endDate}:${direction}`;
-    }, []);
-
-    // Проверка, загружен ли диапазон
-    const isRangeLoaded = useCallback((startDate, endDate, direction) => {
-        const key = createRangeKey(startDate, endDate, direction);
-        return loadedRanges.current.has(key);
-    }, [createRangeKey]);
-
-    // Загрузка батча данных
+    // Загрузка батча данных БЕЗ кеширования диапазонов
     const loadBatch = useCallback(async (startDate, direction, batchSize) => {
         const batchKey = `${startDate}:${direction}:${batchSize}`;
 
-        if (fetchingPromises.current[batchKey] || loadingBatches.has(batchKey)) {
+        if (fetchingPromises.current[batchKey]) {
             return fetchingPromises.current[batchKey];
         }
-
-        // Проверяем, не загружен ли уже этот диапазон
-        const [day, month, year] = startDate.split('.').map(Number);
-        const baseDate = new Date(Date.UTC(year, month - 1, day));
-        let endDate;
-
-        if (direction === 'up') {
-            const earliestDate = new Date(baseDate);
-            earliestDate.setUTCDate(baseDate.getUTCDate() - batchSize + 1);
-            endDate = formatDate(baseDate);
-            startDate = formatDate(earliestDate);
-        } else {
-            const latestDate = new Date(baseDate);
-            latestDate.setUTCDate(baseDate.getUTCDate() + batchSize - 1);
-            endDate = formatDate(latestDate);
-        }
-
-        if (isRangeLoaded(startDate, endDate, direction)) {
-            return Promise.resolve({ data: [] });
-        }
-
-        setLoadingBatches(prev => new Set([...prev, batchKey]));
-
-        // Получаем активный провайдер данных
-        const activeDataProvider = dataProvider || getDataProvider();
 
         const promise = (async () => {
             try {
                 console.log(`[useTableLogic] Загружаем батч: ${startDate}, направление: ${direction}, размер: ${batchSize}`);
 
-                const jsonString = await activeDataProvider(startDate, direction, batchSize);
+                const jsonString = await dataProvider(startDate, direction, batchSize);
 
                 if (typeof jsonString !== 'string') {
                     throw new Error('Провайдер данных должен возвращать JSON-строку');
@@ -180,23 +142,11 @@ export const useTableLogic = ({
                     }
                 }
 
-                const transformedData = { data: dataArray };
+                // Обрабатываем данные напрямую БЕЗ кеширования
+                if (dataArray.length > 0 && treeStructure.leafNodes) {
+                    const processed = processSimpleTableData(dataArray, treeStructure.leafNodes);
 
-                // Обновляем кеш данных
-                setDataCache(prev => {
-                    const updated = { ...prev };
-                    if (transformedData && transformedData.data) {
-                        transformedData.data.forEach(dayData => {
-                            updated[dayData.date] = dayData;
-                        });
-                    }
-                    return updated;
-                });
-
-                // Обновляем кеш обработанных данных
-                if (transformedData && transformedData.data && treeStructure.leafNodes) {
-                    const processed = processSimpleTableData(transformedData.data, treeStructure.leafNodes);
-                    setProcessedCache(prev => {
+                    setVisibleData(prev => {
                         const updated = { ...prev };
                         processed.processedData.forEach(processedRow => {
                             updated[processedRow.date] = processedRow;
@@ -205,19 +155,39 @@ export const useTableLogic = ({
                     });
                 }
 
-                // Отмечаем диапазон как загруженный
-                const rangeKey = createRangeKey(startDate, endDate, direction);
-                loadedRanges.current.add(rangeKey);
+                // Убираем даты из загружающихся
+                setLoadingDates(prev => {
+                    const updated = new Set(prev);
+                    dataArray.forEach(dayData => updated.delete(dayData.date));
+                    return updated;
+                });
 
-                if (onDataLoad && transformedData && transformedData.data) {
-                    onDataLoad(transformedData.data, startDate, batchSize);
+                if (onDataLoad) {
+                    onDataLoad(dataArray, startDate, batchSize);
                 }
 
-                console.log(`[useTableLogic] Батч загружен: ${transformedData.data?.length || 0} записей`);
-                return transformedData;
+                return { data: dataArray };
 
             } catch (error) {
                 console.error('[useTableLogic] Ошибка загрузки данных:', error);
+
+                // Убираем даты из загружающихся даже при ошибке
+                setLoadingDates(prev => {
+                    const updated = new Set(prev);
+                    // Примерно вычисляем какие даты пытались загрузить
+                    const startDateObj = parseDateString(startDate);
+                    for (let i = 0; i < batchSize; i++) {
+                        const date = new Date(startDateObj);
+                        if (direction === 'up') {
+                            date.setUTCDate(startDateObj.getUTCDate() - i);
+                        } else {
+                            date.setUTCDate(startDateObj.getUTCDate() + i);
+                        }
+                        updated.delete(formatDate(date));
+                    }
+                    return updated;
+                });
+
                 if (onError) {
                     onError(error, { startDate, direction, batchSize });
                 }
@@ -226,107 +196,88 @@ export const useTableLogic = ({
         })();
 
         promise.finally(() => {
-            setLoadingBatches(prev => {
-                const updated = new Set(prev);
-                updated.delete(batchKey);
-                return updated;
-            });
             delete fetchingPromises.current[batchKey];
         });
 
         fetchingPromises.current[batchKey] = promise;
         return promise;
-    }, [loadingBatches, dataProvider, onDataLoad, onError, createRangeKey, isRangeLoaded, treeStructure.leafNodes]);
+    }, [dataProvider, onDataLoad, onError, treeStructure.leafNodes]);
 
-    // Простое обновление обработанных данных
-    const scheduleDataProcessing = useCallback(() => {
-        if (pendingRecalculation.current) {
-            clearTimeout(pendingRecalculation.current);
-        }
+    // Очистка невидимых данных: viewport + 2 захлеста буфера
+    const cleanupInvisibleData = useCallback(() => {
+        const { start, end } = visibleRange;
+        const visibleRows = Math.ceil(containerHeight / rowHeight);
 
-        pendingRecalculation.current = setTimeout(() => {
-            if (!isScrollCompensating.current && scrollVelocity.current <= 0.3) {
-                const allAvailableDates = Object.keys(dataCache).sort((a, b) => parseDateString(a) - parseDateString(b));
-                const dataForProcessing = allAvailableDates.map(dateStr => dataCache[dateStr]).filter(Boolean);
+        // Рассчитываем область удержания: viewport + 2*bufferSize сверху и снизу
+        const keepStart = Math.max(0, start - bufferSize * 2);      // viewport - 4 строки
+        const keepEnd = Math.min(dates.length, end + bufferSize * 2);   // viewport + 4 строки
+        const keepDates = new Set(dates.slice(keepStart, keepEnd));
 
-                if (dataForProcessing.length > 0 && treeStructure.leafNodes) {
-                    const processed = processSimpleTableData(dataForProcessing, treeStructure.leafNodes);
-                    setProcessedCache(prev => {
-                        const updated = { ...prev };
-                        processed.processedData.forEach(processedRow => {
-                            updated[processedRow.date] = processedRow;
-                        });
-                        return updated;
-                    });
+        setVisibleData(prev => {
+            const cleaned = {};
+            let removedCount = 0;
+
+            Object.keys(prev).forEach(date => {
+                if (keepDates.has(date)) {
+                    cleaned[date] = prev[date];
+                } else {
+                    removedCount++;
                 }
-            }
-            pendingRecalculation.current = null;
-        }, scrollVelocity.current > 1 ? 200 : 100);
-    }, [dataCache, treeStructure.leafNodes]);
+            });
 
-    // Загрузка видимых данных
+            return cleaned;
+        });
+    }, [visibleRange, dates, containerHeight, rowHeight, bufferSize]);
+
+    // Загрузка видимых данных с фиксированным размером батча
     const loadVisibleData = useCallback(async () => {
         const { start, end } = visibleRange;
         const visibleDates = dates.slice(start, end);
-        const missingDates = visibleDates.filter(date => !dataCache[date]);
+        const missingDates = visibleDates.filter(date =>
+            !visibleData[date] && !loadingDates.has(date)
+        );
 
         if (missingDates.length === 0) return;
 
-        console.log(`[useTableLogic] Загружаем недостающие даты: ${missingDates.length} из ${visibleDates.length}`);
+        // Отмечаем даты как загружающиеся
+        setLoadingDates(prev => new Set([...prev, ...missingDates]));
 
-        // Группируем отсутствующие даты в последовательные батчи
+        // Загружаем ФИКСИРОВАННЫМИ батчами по 20, независимо от количества недостающих дат
         const batchesToLoad = [];
-        let currentBatch = [];
+        const processedDates = new Set();
 
         for (const date of missingDates) {
-            if (currentBatch.length === 0) {
-                currentBatch = [date];
-            } else {
-                const lastDate = currentBatch[currentBatch.length - 1];
-                const lastDateObj = parseDateString(lastDate);
-                const currentDateObj = parseDateString(date);
-                const daysDiff = (currentDateObj - lastDateObj) / (1000 * 60 * 60 * 24);
+            if (processedDates.has(date)) continue;
 
-                if (daysDiff === 1 && currentBatch.length < scrollBatchSize) {
-                    currentBatch.push(date);
-                } else {
-                    if (currentBatch.length > 0) {
-                        batchesToLoad.push({
-                            startDate: currentBatch[0],
-                            direction: 'down',
-                            size: currentBatch.length
-                        });
-                    }
-                    currentBatch = [date];
-                }
+            // Всегда загружаем батч размером batchSize от этой даты
+            batchesToLoad.push({
+                startDate: date,
+                direction: 'down',
+                size: batchSize  // ВСЕГДА 20!
+            });
+
+            // Отмечаем все даты этого батча как обработанные
+            const startDateObj = parseDateString(date);
+            for (let i = 0; i < batchSize; i++) {
+                const batchDate = new Date(startDateObj);
+                batchDate.setUTCDate(startDateObj.getUTCDate() + i);
+                processedDates.add(formatDate(batchDate));
             }
         }
 
-        if (currentBatch.length > 0) {
-            batchesToLoad.push({
-                startDate: currentBatch[0],
-                direction: 'down',
-                size: currentBatch.length
-            });
-        }
-
-        const uniqueBatches = batchesToLoad.filter((batch, index, self) =>
-                index === self.findIndex(b =>
-                    b.startDate === batch.startDate &&
-                    b.direction === batch.direction &&
-                    b.size === batch.size
-                )
-        );
-
-        const loadPromises = uniqueBatches.map(batch =>
+        const loadPromises = batchesToLoad.map(batch =>
             loadBatch(batch.startDate, batch.direction, batch.size)
         );
 
         await Promise.allSettled(loadPromises);
-        scheduleDataProcessing();
-    }, [visibleRange, dates, dataCache, loadBatch, scrollBatchSize, scheduleDataProcessing]);
 
-    // Расширение дат с новой логикой up/down
+        // Отладочная информация о размере данных в памяти
+        const memorySize = Object.keys(visibleData).length;
+        const viewportSize = Math.ceil(containerHeight / rowHeight);
+        const targetSize = viewportSize + (bufferSize * 4); // viewport + 2*bufferSize сверху и снизу
+    }, [visibleRange, dates, visibleData, loadingDates, loadBatch, containerHeight, rowHeight, bufferSize]);
+
+    // Расширение дат
     const extendDates = useCallback(async (direction, isPreemptive = false) => {
         const loadPromises = [];
 
@@ -336,7 +287,7 @@ export const useTableLogic = ({
 
             const lastDateObj = parseDateString(lastDate);
             const newDates = [];
-            const extendSize = isPreemptive ? scrollBatchSize * 2 : scrollBatchSize;
+            const extendSize = isPreemptive ? batchSize * 2 : batchSize;
 
             for (let i = 1; i <= extendSize; i++) {
                 const date = new Date(lastDateObj);
@@ -346,19 +297,13 @@ export const useTableLogic = ({
 
             setDates(prev => [...prev, ...newDates]);
 
-            const startDate = newDates[0];
-            const endDate = newDates[newDates.length - 1];
-            if (!isRangeLoaded(startDate, endDate, 'down')) {
-                loadPromises.push(loadBatch(startDate, 'down', newDates.length));
-            }
-
         } else if (direction === 'up') {
             const firstDate = dates[0];
             if (!firstDate) return;
 
             const firstDateObj = parseDateString(firstDate);
             const newDates = [];
-            const extendSize = isPreemptive ? scrollBatchSize * 2 : scrollBatchSize;
+            const extendSize = isPreemptive ? batchSize * 2 : batchSize;
 
             for (let i = extendSize; i >= 1; i--) {
                 const date = new Date(firstDateObj);
@@ -393,19 +338,12 @@ export const useTableLogic = ({
             } else {
                 setDates(prev => [...newDates, ...prev]);
             }
-
-            const startDate = newDates[0];
-            const endDate = newDates[newDates.length - 1];
-            if (!isRangeLoaded(startDate, endDate, 'up')) {
-                loadPromises.push(loadBatch(firstDate, 'up', newDates.length));
-            }
         }
 
         await Promise.allSettled(loadPromises);
-        scheduleDataProcessing();
-    }, [dates, scrollBatchSize, rowHeight, loadBatch, scheduleDataProcessing, isRangeLoaded]);
+    }, [dates, batchSize, rowHeight]);
 
-    // Обработка скролла с новой логикой направлений
+    // Обработка скролла
     const handleScrollImmediate = useCallback(async () => {
         if (!containerRef.current || isScrollCompensating.current) return;
 
@@ -464,7 +402,12 @@ export const useTableLogic = ({
         if (promises.length > 0) {
             await Promise.allSettled(promises);
         }
-    }, [dates, extendDates, rowHeight, bufferSize]);
+
+        // Очищаем невидимые данные только при медленном скролле
+        if (scrollVelocity.current < 0.5) {
+            cleanupInvisibleData();
+        }
+    }, [dates, extendDates, rowHeight, bufferSize, cleanupInvisibleData]);
 
     const handleScrollThrottled = useMemo(
         () => smartThrottle(handleScrollImmediate, 8),
@@ -508,10 +451,9 @@ export const useTableLogic = ({
                     const containerHeight = containerRef.current.clientHeight;
                     const visibleRows = Math.ceil(containerHeight / rowHeight);
                     const totalRowsNeeded = visibleRows + (bufferSize * 2);
-                    const initialBatchSize = Math.max(scrollBatchSize * 2, totalRowsNeeded);
+                    const initialBatchSize = Math.max(batchSize * 2, totalRowsNeeded);
 
                     await loadBatch(todayFormatted, 'down', initialBatchSize);
-                    scheduleDataProcessing();
 
                     setTimeout(() => {
                         if (containerRef.current) {
@@ -521,8 +463,6 @@ export const useTableLogic = ({
                             setContainerHeight(containerHeight);
                             setScrollTop(targetScroll);
                             setIsInitialized(true);
-
-                            console.log(`[useTableLogic] Инициализация завершена: scroll=${targetScroll}, сегодня на позиции ${todayIndex}`);
                         }
                     }, 100);
                 }
@@ -530,7 +470,7 @@ export const useTableLogic = ({
 
             initializeTable();
         }
-    }, [isInitialized, dates.length, generateInitialDates, today, rowHeight, scrollBatchSize, loadBatch, bufferSize, scheduleDataProcessing]);
+    }, [isInitialized, dates.length, generateInitialDates, today, rowHeight, scrollBatchSize, loadBatch, bufferSize]);
 
     // Загружаем видимые данные только после инициализации
     useEffect(() => {
@@ -541,21 +481,16 @@ export const useTableLogic = ({
 
             return () => clearTimeout(timeoutId);
         }
-    }, [isInitialized, visibleRange, dates.length]);
+    }, [isInitialized, visibleRange, dates.length, loadVisibleData]);
 
-    useEffect(() => {
-        return () => {
-            if (pendingRecalculation.current) {
-                clearTimeout(pendingRecalculation.current);
-            }
-        };
-    }, []);
+    // Создаем processedCache на лету из visibleData для совместимости
+    const processedCache = useMemo(() => visibleData, [visibleData]);
 
     return {
         dates,
-        dataCache,
-        processedCache,
-        loadingBatches,
+        processedCache, // Для обратной совместимости
+        visibleData, // Новое название
+        loadingDates, // Заменяет loadingBatches
         isInitialized,
         scrollTop,
         containerHeight,
@@ -566,7 +501,6 @@ export const useTableLogic = ({
         rowHeight,
         bufferSize,
         handleScroll,
-        loadBatch,
-        scheduleDataProcessing
+        loadBatch
     };
 };

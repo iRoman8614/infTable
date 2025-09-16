@@ -86,10 +86,6 @@ export const TableHeader = React.memo(({
             return [];
         }
 
-        console.log('[TableHeader] Пересчет строк заголовка');
-        console.log('[TableHeader] Видимое дерево:', visibleTree);
-        console.log('[TableHeader] Максимальная глубина:', treeStructure.maxDepth);
-
         const rows = [];
         let currentLevelNodes = visibleTree;
         let depth = 1;

@@ -20,14 +20,12 @@ export const useDragAndDrop = (editMode, onCellMove) => {
         e.dataTransfer.effectAllowed = 'move';
         e.target.style.opacity = '0.5';
 
-        console.log('[DragDrop] Начало перетаскивания:', dragData);
     }, [editMode]);
 
     const handleDragEnd = useCallback((e) => {
         e.target.style.opacity = '1';
         setDraggedData(null);
         setDragOverCell(null);
-        console.log('[DragDrop] Завершение перетаскивания');
     }, []);
 
     const handleDragOver = useCallback((e, targetDate, targetNodeId) => {
@@ -61,7 +59,6 @@ export const useDragAndDrop = (editMode, onCellMove) => {
         const moveData = {
             source: { date: draggedData.date, nodeId: draggedData.nodeId },
             target: { date: targetDate, nodeId: targetNodeId },
-            value: draggedData.cellValue
         };
 
         console.log('[DragDrop] Перемещение:', JSON.stringify(moveData));
