@@ -3,7 +3,7 @@ import { formatDate, parseDateString } from '../utils/dateUtils.js';
 import { smartThrottle } from '../utils/performanceUtils.js';
 
 /**
- * Простая обработка данных без rowspan логики с поддержкой цвета
+ * Простая обработка данных с поддержкой rowspan
  */
 const processSimpleTableData = (dataArray, leafNodes) => {
     const processedData = dataArray.map(dayData => {
@@ -11,14 +11,17 @@ const processSimpleTableData = (dataArray, leafNodes) => {
 
         leafNodes.forEach(leafNode => {
             const columnData = dayData.columns?.find(col => col.headerId === leafNode.id);
-            const value = columnData ? columnData.value : 'М';
+            const value = columnData ? columnData.value : '-';
             const color = columnData ? columnData.color : null;
+            const draggable = columnData ? (columnData.draggable === true) : false;
+            const rowspan = columnData ? (columnData.rowspan || 1) : 1;
 
             elements[leafNode.id] = {
                 status: value,
                 color: color,
+                draggable: draggable,
                 displayed: true,
-                rowspan: 1
+                rowspan: rowspan
             };
         });
 
@@ -31,19 +34,53 @@ const processSimpleTableData = (dataArray, leafNodes) => {
     return { processedData };
 };
 
+const calculateExtendedRange = (visibleRange, dates, visibleData) => {
+    let { start, end } = visibleRange;
+    let extendedStart = start;
+    let extendedEnd = end;
+
+    const searchStart = Math.max(0, start - 50);
+
+    for (let i = searchStart; i < dates.length; i++) {
+        const dateString = dates[i];
+        const rowData = visibleData[dateString];
+        if (!rowData) continue;
+
+        Object.values(rowData.elements).forEach(element => {
+            if (element.rowspan > 1) {
+                const rowspanEnd = i + element.rowspan - 1;
+
+                if (i <= end && rowspanEnd >= start) {
+                    extendedStart = Math.min(extendedStart, i);
+                    extendedEnd = Math.max(extendedEnd, rowspanEnd + 1);
+                }
+            }
+        });
+    }
+
+    if (extendedStart !== start || extendedEnd !== end) {
+        console.log(`[ExtendedRange] Диапазон расширен из-за rowspan: ${start}-${end} → ${extendedStart}-${extendedEnd}`);
+    }
+
+    return {
+        start: Math.max(0, extendedStart),
+        end: Math.min(dates.length, extendedEnd)
+    };
+};
+
 /**
- * Хук для управления логикой виртуализированной таблицы БЕЗ КЕШЕЙ
+ * Хук для управления логикой виртуализированной таблицы с поддержкой rowspan
  */
 export const useTableLogic = ({
-                                  scrollBatchSize = 20, // Фиксированный размер батча
+                                  scrollBatchSize,
                                   dataProvider = null,
                                   onDataLoad = null,
                                   onError = null,
                                   treeStructure
                               }) => {
-    // Основные состояния (БЕЗ КЕШЕЙ)
+    // Основные состояния
     const [dates, setDates] = useState([]);
-    const [visibleData, setVisibleData] = useState({}); // Только видимые данные
+    const [visibleData, setVisibleData] = useState({});
     const [loadingDates, setLoadingDates] = useState(new Set());
     const [isInitialized, setIsInitialized] = useState(false);
 
@@ -61,8 +98,8 @@ export const useTableLogic = ({
 
     // Константы
     const rowHeight = 40;
-    const bufferSize = 2;               // Буфер для visibleRange
-    const batchSize = 20;        // Фиксированный размер батча
+    const bufferSize = 4;
+    const batchSize = scrollBatchSize;
 
     // Сегодняшняя дата
     const today = useMemo(() => {
@@ -71,8 +108,7 @@ export const useTableLogic = ({
         return date;
     }, []);
 
-    // Видимый диапазон с учетом фиксированного размера батча
-    const visibleRange = useMemo(() => {
+    const baseVisibleRange = useMemo(() => {
         if (!containerHeight || dates.length === 0) {
             return { start: 0, end: Math.max(dates.length, batchSize * 2) };
         }
@@ -84,12 +120,15 @@ export const useTableLogic = ({
         const end = Math.min(dates.length, visibleEnd + bufferSize);
 
         return { start, end };
-    }, [scrollTop, containerHeight, dates.length, rowHeight, bufferSize]);
+    }, [scrollTop, containerHeight, dates.length, rowHeight, bufferSize, batchSize]);
 
-    // Генерация начальных дат с учетом фиксированного размера батча
+    const visibleRange = useMemo(() => {
+        return calculateExtendedRange(baseVisibleRange, dates, visibleData);
+    }, [baseVisibleRange, dates, visibleData]);
+
     const generateInitialDates = useCallback(() => {
         const initialDates = [];
-        const daysAround = Math.floor(batchSize * 2); // 40 дней вокруг сегодня
+        const daysAround = Math.floor(batchSize * 2);
 
         for (let i = -daysAround; i <= daysAround; i++) {
             const date = new Date(today);
@@ -98,9 +137,8 @@ export const useTableLogic = ({
         }
 
         return initialDates;
-    }, [today]);
+    }, [today, batchSize]);
 
-    // Загрузка батча данных БЕЗ кеширования диапазонов
     const loadBatch = useCallback(async (startDate, direction, batchSize) => {
         const batchKey = `${startDate}:${direction}:${batchSize}`;
 
@@ -112,7 +150,17 @@ export const useTableLogic = ({
             try {
                 console.log(`[useTableLogic] Загружаем батч: ${startDate}, направление: ${direction}, размер: ${batchSize}`);
 
-                const jsonString = await dataProvider(startDate, direction, batchSize);
+                if (!dataProvider) {
+                    throw new Error('dataProvider не установлен');
+                }
+
+                // ИСПРАВЛЕНИЕ: Вызываем провайдер с правильными параметрами
+                let jsonString;
+                if (dataProvider.constructor.name === 'AsyncFunction') {
+                    jsonString = await dataProvider(startDate, direction, batchSize);
+                } else {
+                    jsonString = dataProvider(startDate, direction, batchSize);
+                }
 
                 if (typeof jsonString !== 'string') {
                     throw new Error('Провайдер данных должен возвращать JSON-строку');
@@ -138,11 +186,11 @@ export const useTableLogic = ({
                 if (dataArray.length > 0) {
                     const firstRecord = dataArray[0];
                     if (!firstRecord.date || !firstRecord.columns || !Array.isArray(firstRecord.columns)) {
-                        throw new Error('Некорректный формат данных: ожидается {date: string, columns: [{headerId: string, value: string}]}');
+                        throw new Error('Некорректный формат данных: ожидается {date: string, columns: [{headerId: string, value: string, rowspan?: number}]}');
                     }
                 }
 
-                // Обрабатываем данные напрямую БЕЗ кеширования
+                // Обрабатываем данные с поддержкой rowspan
                 if (dataArray.length > 0 && treeStructure.leafNodes) {
                     const processed = processSimpleTableData(dataArray, treeStructure.leafNodes);
 
@@ -171,10 +219,8 @@ export const useTableLogic = ({
             } catch (error) {
                 console.error('[useTableLogic] Ошибка загрузки данных:', error);
 
-                // Убираем даты из загружающихся даже при ошибке
                 setLoadingDates(prev => {
                     const updated = new Set(prev);
-                    // Примерно вычисляем какие даты пытались загрузить
                     const startDateObj = parseDateString(startDate);
                     for (let i = 0; i < batchSize; i++) {
                         const date = new Date(startDateObj);
@@ -203,14 +249,11 @@ export const useTableLogic = ({
         return promise;
     }, [dataProvider, onDataLoad, onError, treeStructure.leafNodes]);
 
-    // Очистка невидимых данных: viewport + 2 захлеста буфера
+    // Очистка невидимых данных с учетом rowspan
     const cleanupInvisibleData = useCallback(() => {
-        const { start, end } = visibleRange;
-        const visibleRows = Math.ceil(containerHeight / rowHeight);
-
-        // Рассчитываем область удержания: viewport + 2*bufferSize сверху и снизу
-        const keepStart = Math.max(0, start - bufferSize * 2);      // viewport - 4 строки
-        const keepEnd = Math.min(dates.length, end + bufferSize * 2);   // viewport + 4 строки
+        const extendedRange = calculateExtendedRange(baseVisibleRange, dates, visibleData);
+        const keepStart = Math.max(0, extendedRange.start - bufferSize);
+        const keepEnd = Math.min(dates.length, extendedRange.end + bufferSize);
         const keepDates = new Set(dates.slice(keepStart, keepEnd));
 
         setVisibleData(prev => {
@@ -225,11 +268,15 @@ export const useTableLogic = ({
                 }
             });
 
+            if (removedCount > 0) {
+                console.log(`[Cleanup] Удалено ${removedCount} записей из памяти`);
+            }
+
             return cleaned;
         });
-    }, [visibleRange, dates, containerHeight, rowHeight, bufferSize]);
+    }, [baseVisibleRange, dates, visibleData, bufferSize]);
 
-    // Загрузка видимых данных с фиксированным размером батча
+    // ИСПРАВЛЕННАЯ загрузка видимых данных
     const loadVisibleData = useCallback(async () => {
         const { start, end } = visibleRange;
         const visibleDates = dates.slice(start, end);
@@ -239,43 +286,42 @@ export const useTableLogic = ({
 
         if (missingDates.length === 0) return;
 
+        console.log(`[loadVisibleData] Нужно загрузить ${missingDates.length} дат:`, missingDates);
+
         // Отмечаем даты как загружающиеся
         setLoadingDates(prev => new Set([...prev, ...missingDates]));
 
-        // Загружаем ФИКСИРОВАННЫМИ батчами по 20, независимо от количества недостающих дат
-        const batchesToLoad = [];
-        const processedDates = new Set();
+        // Группируем недостающие даты в непрерывные блоки для более эффективной загрузки
+        const dateGroups = [];
+        let currentGroup = [missingDates[0]];
 
-        for (const date of missingDates) {
-            if (processedDates.has(date)) continue;
+        for (let i = 1; i < missingDates.length; i++) {
+            const currentDate = parseDateString(missingDates[i]);
+            const lastDate = parseDateString(currentGroup[currentGroup.length - 1]);
+            const daysDiff = (currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
 
-            // Всегда загружаем батч размером batchSize от этой даты
-            batchesToLoad.push({
-                startDate: date,
-                direction: 'down',
-                size: batchSize  // ВСЕГДА 20!
-            });
-
-            // Отмечаем все даты этого батча как обработанные
-            const startDateObj = parseDateString(date);
-            for (let i = 0; i < batchSize; i++) {
-                const batchDate = new Date(startDateObj);
-                batchDate.setUTCDate(startDateObj.getUTCDate() + i);
-                processedDates.add(formatDate(batchDate));
+            if (daysDiff === 1) {
+                // Непрерывная дата - добавляем в текущую группу
+                currentGroup.push(missingDates[i]);
+            } else {
+                // Разрыв - начинаем новую группу
+                dateGroups.push(currentGroup);
+                currentGroup = [missingDates[i]];
             }
         }
+        dateGroups.push(currentGroup);
 
-        const loadPromises = batchesToLoad.map(batch =>
-            loadBatch(batch.startDate, batch.direction, batch.size)
-        );
+        // Загружаем каждую группу
+        const loadPromises = dateGroups.map(group => {
+            const startDate = group[0];
+            const groupSize = Math.min(group.length, batchSize);
+
+            console.log(`[loadVisibleData] Загружаем группу от ${startDate}, размер: ${groupSize}`);
+            return loadBatch(startDate, 'down', groupSize);
+        });
 
         await Promise.allSettled(loadPromises);
-
-        // Отладочная информация о размере данных в памяти
-        const memorySize = Object.keys(visibleData).length;
-        const viewportSize = Math.ceil(containerHeight / rowHeight);
-        const targetSize = viewportSize + (bufferSize * 4); // viewport + 2*bufferSize сверху и снизу
-    }, [visibleRange, dates, visibleData, loadingDates, loadBatch, containerHeight, rowHeight, bufferSize]);
+    }, [visibleRange, dates, visibleData, loadingDates, loadBatch, batchSize]);
 
     // Расширение дат
     const extendDates = useCallback(async (direction, isPreemptive = false) => {
@@ -381,29 +427,19 @@ export const useTableLogic = ({
         const promises = [];
 
         if (needsTopExtension) {
+            console.log('[Scroll] Расширяем даты вверх');
             promises.push(extendDates('up', isHighVelocity));
         }
 
         if (needsBottomExtension) {
+            console.log('[Scroll] Расширяем даты вниз');
             promises.push(extendDates('down', isHighVelocity));
-        }
-
-        if (isHighVelocity) {
-            const preemptiveTopThreshold = topThreshold * 2;
-            const preemptiveBottomThreshold = scrollHeight - newContainerHeight - (dynamicThreshold * 2);
-
-            if (scrollDelta < 0 && newScrollTop <= preemptiveTopThreshold) {
-                promises.push(extendDates('up', true));
-            } else if (scrollDelta > 0 && newScrollTop >= preemptiveBottomThreshold) {
-                promises.push(extendDates('down', true));
-            }
         }
 
         if (promises.length > 0) {
             await Promise.allSettled(promises);
         }
 
-        // Очищаем невидимые данные только при медленном скролле
         if (scrollVelocity.current < 0.5) {
             cleanupInvisibleData();
         }
@@ -426,9 +462,9 @@ export const useTableLogic = ({
         }
     }, [handleScrollThrottled]);
 
-    // Инициализация таблицы
+    // ИСПРАВЛЕННАЯ инициализация таблицы
     useEffect(() => {
-        if (!isInitialized && dates.length === 0) {
+        if (!isInitialized && dates.length === 0 && treeStructure.leafNodes.length > 0) {
             const initialDates = generateInitialDates();
             setDates(initialDates);
 
@@ -436,7 +472,10 @@ export const useTableLogic = ({
                 const todayFormatted = formatDate(today);
                 const todayIndex = initialDates.findIndex(date => date === todayFormatted);
 
-                if (todayIndex !== -1 && containerRef.current) {
+                console.log(`[Init] Сегодняшняя дата: ${todayFormatted}, индекс: ${todayIndex}`);
+
+                if (todayIndex !== -1) {
+                    // Ждем когда контейнер получит размеры
                     await new Promise(resolve => {
                         const checkDimensions = () => {
                             if (containerRef.current?.clientHeight > 0) {
@@ -450,27 +489,38 @@ export const useTableLogic = ({
 
                     const containerHeight = containerRef.current.clientHeight;
                     const visibleRows = Math.ceil(containerHeight / rowHeight);
-                    const totalRowsNeeded = visibleRows + (bufferSize * 2);
-                    const initialBatchSize = Math.max(batchSize * 2, totalRowsNeeded);
+                    const initialBatchSize = Math.max(batchSize * 2, visibleRows + bufferSize * 2);
 
-                    await loadBatch(todayFormatted, 'down', initialBatchSize);
+                    // Загружаем начальные данные
+                    console.log(`[Init] Загружаем начальные данные: ${initialBatchSize} записей от ${todayFormatted}`);
 
-                    setTimeout(() => {
-                        if (containerRef.current) {
-                            const targetScroll = todayIndex * rowHeight;
-                            containerRef.current.scrollTop = targetScroll;
+                    try {
+                        await loadBatch(todayFormatted, 'down', initialBatchSize);
 
-                            setContainerHeight(containerHeight);
-                            setScrollTop(targetScroll);
-                            setIsInitialized(true);
-                        }
-                    }, 100);
+                        // После загрузки данных устанавливаем скролл на сегодняшнюю дату
+                        setTimeout(() => {
+                            if (containerRef.current) {
+                                const targetScroll = todayIndex * rowHeight;
+                                console.log(`[Init] Устанавливаем скролл на позицию: ${targetScroll}`);
+
+                                containerRef.current.scrollTop = targetScroll;
+                                setContainerHeight(containerHeight);
+                                setScrollTop(targetScroll);
+                                setIsInitialized(true);
+
+                                console.log('[Init] Инициализация завершена');
+                            }
+                        }, 200);
+                    } catch (error) {
+                        console.error('[Init] Ошибка при загрузке начальных данных:', error);
+                        setIsInitialized(true); // Инициализируем даже при ошибке
+                    }
                 }
             };
 
             initializeTable();
         }
-    }, [isInitialized, dates.length, generateInitialDates, today, rowHeight, scrollBatchSize, loadBatch, bufferSize]);
+    }, [isInitialized, dates.length, generateInitialDates, today, rowHeight, batchSize, loadBatch, bufferSize, treeStructure.leafNodes.length]);
 
     // Загружаем видимые данные только после инициализации
     useEffect(() => {
@@ -485,27 +535,6 @@ export const useTableLogic = ({
 
     // Создаем processedCache на лету из visibleData для совместимости
     const processedCache = useMemo(() => visibleData, [visibleData]);
-
-    // const refreshViewport = useCallback(async () => {
-    //     // 1. Получаем текущий видимый диапазон
-    //     const { start, end } = visibleRange;
-    //     const currentVisibleDates = dates.slice(start, end);
-    //
-    //     // 2. Очищаем данные viewport из памяти
-    //     setVisibleData(prev => {
-    //         const cleaned = { ...prev };
-    //         currentVisibleDates.forEach(date => {
-    //             delete cleaned[date];
-    //         });
-    //         return cleaned;
-    //     });
-    //
-    //     // 3. Принудительно перезапрашиваем данные батчами по 20
-    //     const batchCount = Math.ceil(currentVisibleDates.length / batchSize);
-    //     for (let i = 0; i < batchCount; i++) {
-    //         await loadBatch(batchStartDate, 'down', batchSize);
-    //     }
-    // }, [visibleRange, dates, loadBatch]);
 
     const refreshViewport = useCallback(async () => {
         const { start, end } = visibleRange;
@@ -545,13 +574,13 @@ export const useTableLogic = ({
             await Promise.allSettled(refreshPromises);
             console.log(`[RefreshViewport] Viewport обновлен: ${refreshPromises.length} батчей перезагружено`);
         }
-    }, [visibleRange, dates, loadBatch]);
+    }, [visibleRange, dates, loadBatch, batchSize]);
 
     return {
         dates,
-        processedCache, // Для обратной совместимости
-        visibleData, // Новое название
-        loadingDates, // Заменяет loadingBatches
+        processedCache,
+        visibleData,
+        loadingDates,
         isInitialized,
         scrollTop,
         containerHeight,

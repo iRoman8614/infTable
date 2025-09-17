@@ -283,738 +283,6 @@
   };
 
   // 2. Async провайдер данных с новой логикой up/down
-  // window.dp = async function(startDate, direction, batchSize) {
-  //   //
-  //   return {
-  //     "data": [
-  //       {
-  //         "date": "10.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "О"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "П"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "11.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "О"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "П"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "12.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "О"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "13.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "14.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "О"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "П"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "15.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "16.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "17.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "18.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "19.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "20.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "21.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "22.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "23.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "24.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "25.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "26.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "27.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "28.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "29.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "30.09.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "Р"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "01.10.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "О"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "П"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "02.10.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "О"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "П"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "03.10.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "О"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "П"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "04.10.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "О"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "П"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "05.10.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "О"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "П"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "06.10.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "О"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "П"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "07.10.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "О"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "П"
-  //           }
-  //         ]
-  //       },
-  //       {
-  //         "date": "08.10.2025",
-  //         "columns": [
-  //           {
-  //             "headerId": "station1",
-  //             "value": "М"
-  //           },
-  //           {
-  //             "headerId": "station2",
-  //             "value": "О"
-  //           },
-  //           {
-  //             "headerId": "station3",
-  //             "value": "П"
-  //           },
-  //           {
-  //             "headerId": "station4",
-  //             "value": "Р"
-  //           },
-  //           {
-  //             "headerId": "station5",
-  //             "value": "П"
-  //           }
-  //         ]
-  //       },
-  //     ]
-  //   }
-  // };
   window.dp = async function(startDate, direction, batchSize) {
     const data = {
       "data": [
@@ -1024,74 +292,89 @@
             {
               "headerId": "station1",
               "value": "М",
-              "color": "red"
+              "rowspan": 7,
+              "color": "red",
+              "draggable": true
             },
             {
               "headerId": "station2",
               "value": "О",
-              "color": "red"
+              "color": "red",
+              "draggable": true
             },
             {
               "headerId": "station3",
               "value": "П",
-              "color": "red"
+              "color": "red",
+              "draggable": true
             },
             {
               "headerId": "station4",
               "value": "Р",
-              "color": "red"
+              "color": "red",
+              "draggable": true
             },
             {
               "headerId": "station5",
               "value": "П",
-              "color": "red"
+              "color": "red",
+              "draggable": true
             }
           ]
         },
         {
           "date": "11.09.2025",
           "columns": [
-            {
-              "headerId": "station1",
-              "value": "М",
-              "color": "red"
-            },
+            // {
+            //   "headerId": "station1",
+            //   "value": "М",
+            //   "color": "red",
+            //   "draggable": false
+            // },
             {
               "headerId": "station2",
-              "value": "Р"
+              "value": "Р",
+              "draggable": false
             },
             {
               "headerId": "station3",
-              "value": "М"
+              "value": "М",
+              "draggable": false
             },
             {
               "headerId": "station4",
-              "value": "О"
+              "value": "О",
+              "draggable": false
             },
             {
               "headerId": "station5",
-              "value": "П"
+              "value": "П",
+              "draggable": false
             }
           ]
         },
         {
           "date": "12.09.2025",
           "columns": [
-            {
-              "headerId": "station1",
-              "value": "Р"
-            },
+            // {
+            //   "headerId": "station1",
+            //   "value": "Р",
+            //   "draggable": true
+            // },
             {
               "headerId": "station2",
-              "value": "П"
+              "value": "П",
+              "draggable": true
             },
             {
               "headerId": "station3",
-              "value": "П"
+              "value": "П",
+              "draggable": true
             },
             {
               "headerId": "station4",
-              "value": "М"
+              "value": "М",
+              "draggable": true
             },
             {
               "headerId": "station5",
@@ -1102,10 +385,10 @@
         {
           "date": "13.09.2025",
           "columns": [
-            {
-              "headerId": "station1",
-              "value": "Р"
-            },
+            // {
+            //   "headerId": "station1",
+            //   "value": "Р"
+            // },
             {
               "headerId": "station2",
               "value": "Р"
@@ -1127,10 +410,10 @@
         {
           "date": "14.09.2025",
           "columns": [
-            {
-              "headerId": "station1",
-              "value": "М"
-            },
+            // {
+            //   "headerId": "station1",
+            //   "value": "М"
+            // },
             {
               "headerId": "station2",
               "value": "О"
@@ -1152,10 +435,10 @@
         {
           "date": "15.09.2025",
           "columns": [
-            {
-              "headerId": "station1",
-              "value": "П"
-            },
+            // {
+            //   "headerId": "station1",
+            //   "value": "П"
+            // },
             {
               "headerId": "station2",
               "value": "М"
@@ -1177,10 +460,10 @@
         {
           "date": "16.09.2025",
           "columns": [
-            {
-              "headerId": "station1",
-              "value": "П"
-            },
+            // {
+            //   "headerId": "station1",
+            //   "value": "П"
+            // },
             {
               "headerId": "station2",
               "value": "М"

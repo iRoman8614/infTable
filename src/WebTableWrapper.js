@@ -19,7 +19,7 @@ const TableWrapper = ({
     // Цветовая тема
     const colorTheme = useCallback((value, isPast) => {
         if (value === "BGHeader") return '#dee3f5';
-        if (value === "DATE") return isPast ? '#acb5e3' : '#white';
+        if (value === "DATE") return isPast ? '#acb5e3' : 'white';
         return isPast ? '#acb5e3' : 'white';
     }, []);
 
@@ -50,41 +50,104 @@ const TableWrapper = ({
         window.dispatchEvent(customEvent);
     }, [onCellClickHandler]);
 
-    // Получение провайдеров
     const getDataProvider = useCallback(() => {
-        if (dataProviderName && window[dataProviderName]) {
-            return window[dataProviderName];
+        if (dataProviderName && typeof dataProviderName === 'string' && window[dataProviderName]) {
+            const provider = window[dataProviderName];
+            if (typeof provider === 'function') {
+                console.log(`[WebTableWrapper] Используем провайдер данных: window.${dataProviderName}`);
+                return provider;
+            }
         }
+
         if (window.dp && typeof window.dp === 'function') {
+            console.log('[WebTableWrapper] Используем провайдер данных: window.dp');
             return window.dp;
         }
+
+        const possibleProviders = ['dataProvider', 'DataProvider'];
+        for (const providerName of possibleProviders) {
+            if (window[providerName] && typeof window[providerName] === 'function') {
+                console.log(`[WebTableWrapper] Используем провайдер данных: window.${providerName}`);
+                return window[providerName];
+            }
+        }
+        console.warn('[WebTableWrapper] Провайдер данных не найден');
         return null;
     }, [dataProviderName]);
 
     const getHeaderProvider = useCallback(() => {
-        const provider = (headerProviderName && window[headerProviderName]) ||
-            window.hp ||
-            window.HeadersProvider;
+        if (headerProviderName && typeof headerProviderName === 'string' && window[headerProviderName]) {
+            const provider = window[headerProviderName];
+            if (typeof provider === 'function') {
+                console.log(`[WebTableWrapper] Используем провайдер заголовков: window.${headerProviderName}`);
+                return provider;
+            }
+        }
 
-        return typeof provider === 'function' ? provider : null;
+        const standardProviders = ['hp', 'HeadersProvider'];
+        for (const providerName of standardProviders) {
+            if (window[providerName] && typeof window[providerName] === 'function') {
+                console.log(`[WebTableWrapper] Используем провайдер заголовков: window.${providerName}`);
+                return window[providerName];
+            }
+        }
+
+        console.warn('[WebTableWrapper] Провайдер заголовков не найден');
+        return null;
     }, [headerProviderName]);
 
-    // Инициализация
     useEffect(() => {
-        setIsReady(true);
-    }, []);
+        const initializeWithRetry = () => {
+            const dataProvider = getDataProvider();
+            const headerProvider = getHeaderProvider();
+
+            if (dataProvider || headerProvider) {
+                console.log('[WebTableWrapper] Провайдеры найдены, инициализируем таблицу');
+                setIsReady(true);
+            } else {
+                console.log('[WebTableWrapper] Провайдеры не найдены, повторная проверка через 500мс');
+                setTimeout(initializeWithRetry, 500);
+            }
+        };
+
+        initializeWithRetry();
+
+        const checkInterval = setInterval(() => {
+            if (!isReady) {
+                initializeWithRetry();
+            }
+        }, 1000);
+
+        return () => clearInterval(checkInterval);
+    }, [isReady, getDataProvider, getHeaderProvider]);
 
     if (!isReady) {
         return (
             <div style={{
                 display: 'flex',
+                flexDirection: 'column',
                 justifyContent: 'center',
                 alignItems: 'center',
                 height: '200px',
                 fontSize: '14px',
-                color: '#666'
+                color: '#666',
+                gap: '10px'
             }}>
-                Инициализация таблицы...
+                <div style={{
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    border: '2px solid #ddd',
+                    borderTop: '2px solid #007bff',
+                    animation: 'spin 1s linear infinite'
+                }} />
+                <div>Инициализация таблицы...</div>
+                <div style={{ fontSize: '12px', color: '#999' }}>
+                    Ожидание провайдеров данных и заголовков
+                </div>
+                <style>
+                    {`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}
+                </style>
             </div>
         );
     }

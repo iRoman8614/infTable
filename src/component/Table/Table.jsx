@@ -31,7 +31,6 @@ export const Table = ({
     // Загрузка заголовков с мемоизацией
     const { headersData, headersError, isLoading: headersLoading } = useHeadersLoader(headerProvider);
 
-    // Цветовая тема (мемоизирована)
     const activeColorTheme = useMemo(() => {
         if (colorTheme) return colorTheme;
 
@@ -46,7 +45,7 @@ export const Table = ({
         };
     }, [colorTheme]);
 
-    // Структура дерева заголовков (мемоизирована)
+    // Структура дерева заголовков (мемоизированная)
     const treeStructure = useMemo(() => {
         if (!headersData || !headersData.headers || !Array.isArray(headersData.headers)) {
             console.warn('[Table] Некорректные данные заголовков:', headersData);
@@ -130,6 +129,48 @@ export const Table = ({
         return hasProps || hasWindow;
     }, [onCellClick, hasGlobalHandlers, debug]);
 
+    // Регистрация глобальных функций
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            // Функция для переключения режима редактирования
+            window.editMode = (enabled) => {
+                if (typeof enabled === 'boolean') {
+                    setEditMode(enabled);
+                    console.log(`[Table] Edit mode ${enabled ? 'enabled' : 'disabled'}`);
+                } else {
+                    console.warn('[Table] editMode expects boolean parameter');
+                }
+            };
+
+            // Функция для показа/скрытия фильтров
+            window.showFilters = (show) => {
+                if (typeof show === 'boolean') {
+                    setShowFilters(show);
+                    console.log(`[Table] Filters panel ${show ? 'opened' : 'closed'}`);
+                } else {
+                    console.warn('[Table] showFilters expects boolean parameter');
+                }
+            };
+
+            // Функция для получения текущего состояния
+            window.getTableState = () => {
+                return {
+                    editMode,
+                    showFilters,
+                    visibleLeafNodes: nodeVisibilityLogic.visibleLeafNodes.length,
+                    totalDates: tableLogic.dates.length,
+                    isInitialized: tableLogic.isInitialized
+                };
+            };
+
+            return () => {
+                delete window.editMode;
+                delete window.showFilters;
+                delete window.getTableState;
+            };
+        }
+    }, [editMode, showFilters, nodeVisibilityLogic.visibleLeafNodes.length, tableLogic.dates.length, tableLogic.isInitialized]);
+
     // Обработчик клика
     const handleCellClick = useCallback(async (date, nodeId) => {
         const clickKey = `${date}-${nodeId}`;
@@ -168,18 +209,34 @@ export const Table = ({
         }
     }, [clickLoading]);
 
-    // Получение значения ячейки (мемоизировано)
     const getCellValue = useCallback((processedRow, nodeId) => {
-        return processedRow.elements && processedRow.elements[nodeId]
-            ? processedRow.elements[nodeId].status
-            : 'М';
+        if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
+            return '-';
+        }
+
+        const element = processedRow.elements[nodeId];
+        const value = element.status;
+
+        if (value === null || value === undefined || value === '') {
+            return '-';
+        }
+
+        return value;
     }, []);
 
     // Получение цвета ячейки из данных
     const getCellColor = useCallback((processedRow, nodeId) => {
-        return processedRow.elements && processedRow.elements[nodeId]
-            ? processedRow.elements[nodeId].color
-            : null;
+        return processedRow?.elements?.[nodeId]?.color || null;
+    }, []);
+
+    // Получение флага draggable из данных
+    const getCellDraggable = useCallback((processedRow, nodeId) => {
+        if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
+            return false;
+        }
+
+        const element = processedRow.elements[nodeId];
+        return element.draggable === true; // Только если явно указано true
     }, []);
 
     // Вычисляем видимые даты и отступы для виртуализации
@@ -232,47 +289,6 @@ export const Table = ({
 
     return (
         <>
-            {/* Панель управления */}
-            <div style={{
-                display: 'flex',
-                gap: '20px',
-                marginBottom: '10px',
-                alignItems: 'center'
-            }}>
-                <div>План 1</div>
-                <div>Отображать отклонения</div>
-
-                {/* Чекбокс режима редактирования */}
-                <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    cursor: 'pointer',
-                    gap: '8px'
-                }}>
-                    <input
-                        type="checkbox"
-                        checked={editMode}
-                        onChange={(e) => setEditMode(e.target.checked)}
-                        style={{ cursor: 'pointer' }}
-                    />
-                    Режим редактирования
-                </label>
-
-                <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    style={{
-                        padding: '8px 16px',
-                        backgroundColor: 'rgba(108,155,255,0.45)',
-                        border: '1px solid #ccc',
-                        borderRadius: '4px',
-                        cursor: 'pointer'
-                    }}
-                >
-                    Задать фильтр
-                </button>
-            </div>
-
-            {/* Панель фильтров */}
             {showFilters && (
                 <FiltersPanel
                     filteredTree={nodeVisibilityLogic.filteredTree}
@@ -347,8 +363,9 @@ export const Table = ({
 
                                 {/* Колонки данных для каждого видимого узла */}
                                 {nodeVisibilityLogic.visibleLeafNodes.map((leafNode) => {
-                                    const cellValue = processedRow ? getCellValue(processedRow, leafNode.id) : 'М';
+                                    const cellValue = processedRow ? getCellValue(processedRow, leafNode.id) : '-';
                                     const cellColor = processedRow ? getCellColor(processedRow, leafNode.id) : null;
+                                    const isDraggable = processedRow ? getCellDraggable(processedRow, leafNode.id) : false;
                                     const clickKey = `${dateString}-${leafNode.id}`;
                                     const isCellLoading = clickLoading.has(clickKey);
 
@@ -356,22 +373,23 @@ export const Table = ({
                                     const dragStyles = dragDropHandlers.getCellDragStyles(
                                         dateString,
                                         leafNode.id,
-                                        cellColor || activeColorTheme(cellValue, isPastDate)
+                                        cellColor || activeColorTheme(cellValue, isPastDate),
+                                        isDraggable
                                     );
 
                                     return (
                                         <td
                                             key={`${dateString}-${leafNode.id}`}
-                                            draggable={editMode}
-                                            onDoubleClick={hasClickHandlers && editMode ? (event) => {
+                                            draggable={editMode && isDraggable}
+                                            onDoubleClick={editMode && hasClickHandlers ? (event) => {
                                                 console.log('[Table] Cell double-clicked, calling handler');
                                                 handleCellClick(dateString, leafNode.id, cellValue, event);
                                             } : undefined}
-                                            onDragStart={editMode ? (e) => dragDropHandlers.handleDragStart(e, dateString, leafNode.id, cellValue) : undefined}
-                                            onDragEnd={editMode ? dragDropHandlers.handleDragEnd : undefined}
-                                            onDragOver={editMode ? (e) => dragDropHandlers.handleDragOver(e, dateString, leafNode.id) : undefined}
+                                            onDragStart={editMode && isDraggable ? (e) => dragDropHandlers.handleDragStart(e, dateString, leafNode.id, cellValue, isDraggable) : undefined}
+                                            onDragEnd={editMode && isDraggable ? dragDropHandlers.handleDragEnd : undefined}
+                                            onDragOver={editMode ? (e) => dragDropHandlers.handleDragOver(e, dateString, leafNode.id, isDraggable) : undefined}
                                             onDragLeave={editMode ? dragDropHandlers.handleDragLeave : undefined}
-                                            onDrop={editMode ? (e) => dragDropHandlers.handleDrop(e, dateString, leafNode.id) : undefined}
+                                            onDrop={editMode && isDraggable ? (e) => dragDropHandlers.handleDrop(e, dateString, leafNode.id, isDraggable) : undefined}
                                             style={{
                                                 padding: '4px',
                                                 textAlign: 'center',

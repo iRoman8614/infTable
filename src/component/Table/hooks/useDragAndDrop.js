@@ -20,6 +20,7 @@ export const useDragAndDrop = (editMode, onCellMove) => {
         e.dataTransfer.effectAllowed = 'move';
         e.target.style.opacity = '0.5';
 
+        console.log('[DragDrop] Начато перетаскивание:', dragData);
     }, [editMode]);
 
     const handleDragEnd = useCallback((e) => {
