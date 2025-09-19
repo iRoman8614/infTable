@@ -1,9 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import r2wc from '@r2wc/react-to-web-component';
 import { Table } from './component/Table/index';
 
+// Импортируем глобальное состояние
+import './VirtualizedTableState.js';
+
 /**
- * Wrapper компонент для Web Component
+ * Wrapper компонент для Web Component с поддержкой глобального состояния
  */
 const TableWrapper = ({
                           maxWidth,
@@ -16,6 +19,16 @@ const TableWrapper = ({
                       }) => {
     const [isReady, setIsReady] = useState(false);
 
+    // Состояния синхронизированные с глобальным объектом
+    const [editMode, setEditMode] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);
+    const [stateVersion, setStateVersion] = useState(0);
+
+    // Refs для кэширования провайдеров
+    const dataProviderRef = useRef(null);
+    const headerProviderRef = useRef(null);
+    const lastCheckRef = useRef(0);
+
     // Цветовая тема
     const colorTheme = useCallback((value, isPast) => {
         if (value === "BGHeader") return '#dee3f5';
@@ -23,20 +36,33 @@ const TableWrapper = ({
         return isPast ? '#acb5e3' : 'white';
     }, []);
 
-    // Обработчик клика
-    const handleCellClick = useCallback((cellData) => {
-        console.log('[TableWrapper] Двойной клик по ячейке:', cellData);
+    // Обработчик клика с поддержкой нового API
+    const handleCellClick = useCallback((cellData, event) => {
+        console.log('[TableWrapper] Ячейка кликнута:', cellData);
 
-        // Пробуем найти обработчик
+        // Используем новый API если доступен
+        if (typeof window !== 'undefined' && window.VirtualizedTableState?.onCellClick) {
+            try {
+                window.VirtualizedTableState.onCellClick(cellData, event);
+            } catch (error) {
+                console.error('Ошибка в глобальном обработчике кликов:', error);
+            }
+        }
+
+        // Пробуем найти обработчик по имени
         if (onCellClickHandler && window[onCellClickHandler]) {
             try {
                 window[onCellClickHandler](cellData);
             } catch (error) {
                 console.error(`Ошибка в обработчике ${onCellClickHandler}:`, error);
             }
-        } else if (window.onTableCellClick) {
+        }
+
+        // Обратная совместимость
+        if (window.onTableCellClick) {
             try {
-                window.onTableCellClick(cellData);
+                const jsonString = JSON.stringify(cellData);
+                window.onTableCellClick(jsonString);
             } catch (error) {
                 console.error('Ошибка в window.onTableCellClick:', error);
             }
@@ -50,52 +76,129 @@ const TableWrapper = ({
         window.dispatchEvent(customEvent);
     }, [onCellClickHandler]);
 
+    // ИСПРАВЛЕННАЯ функция получения провайдера данных БЕЗ stateVersion в зависимостях
     const getDataProvider = useCallback(() => {
-        if (dataProviderName && typeof dataProviderName === 'string' && window[dataProviderName]) {
-            const provider = window[dataProviderName];
-            if (typeof provider === 'function') {
+        // Проверяем, нужно ли обновить кэш
+        const now = Date.now();
+        if (dataProviderRef.current && (now - lastCheckRef.current < 1000)) {
+            return dataProviderRef.current;
+        }
+
+        let provider = null;
+
+        // Сначала проверяем глобальное состояние
+        if (typeof window !== 'undefined' && window.VirtualizedTableState?.dataProvider) {
+            console.log('[WebTableWrapper] Используем глобальный провайдер данных');
+            provider = window.VirtualizedTableState.dataProvider;
+        }
+        // Затем проверяем по имени
+        else if (dataProviderName && typeof dataProviderName === 'string' && window[dataProviderName]) {
+            const namedProvider = window[dataProviderName];
+            if (typeof namedProvider === 'function') {
                 console.log(`[WebTableWrapper] Используем провайдер данных: window.${dataProviderName}`);
-                return provider;
+                provider = namedProvider;
+            }
+        }
+        // Проверяем стандартные имена
+        else {
+            const possibleProviders = ['dp', 'dataProvider', 'DataProvider'];
+            for (const providerName of possibleProviders) {
+                if (window[providerName] && typeof window[providerName] === 'function') {
+                    console.log(`[WebTableWrapper] Используем провайдер данных: window.${providerName}`);
+                    provider = window[providerName];
+                    break;
+                }
             }
         }
 
-        if (window.dp && typeof window.dp === 'function') {
-            console.log('[WebTableWrapper] Используем провайдер данных: window.dp');
-            return window.dp;
+        if (!provider) {
+            console.warn('[WebTableWrapper] Провайдер данных не найден');
         }
 
-        const possibleProviders = ['dataProvider', 'DataProvider'];
-        for (const providerName of possibleProviders) {
-            if (window[providerName] && typeof window[providerName] === 'function') {
-                console.log(`[WebTableWrapper] Используем провайдер данных: window.${providerName}`);
-                return window[providerName];
-            }
-        }
-        console.warn('[WebTableWrapper] Провайдер данных не найден');
-        return null;
-    }, [dataProviderName]);
+        // Кэшируем результат
+        dataProviderRef.current = provider;
+        lastCheckRef.current = now;
+        return provider;
+    }, [dataProviderName]); // Убираем stateVersion из зависимостей
 
+    // ИСПРАВЛЕННАЯ функция получения провайдера заголовков БЕЗ stateVersion в зависимостях
     const getHeaderProvider = useCallback(() => {
-        if (headerProviderName && typeof headerProviderName === 'string' && window[headerProviderName]) {
-            const provider = window[headerProviderName];
-            if (typeof provider === 'function') {
+        // Используем тот же кэш что и для dataProvider
+        const now = Date.now();
+        if (headerProviderRef.current && (now - lastCheckRef.current < 1000)) {
+            return headerProviderRef.current;
+        }
+
+        let provider = null;
+
+        // Сначала проверяем глобальное состояние
+        if (typeof window !== 'undefined' && window.VirtualizedTableState?.headerProvider) {
+            console.log('[WebTableWrapper] Используем глобальный провайдер заголовков');
+            provider = window.VirtualizedTableState.headerProvider;
+        }
+        // Затем проверяем по имени
+        else if (headerProviderName && typeof headerProviderName === 'string' && window[headerProviderName]) {
+            const namedProvider = window[headerProviderName];
+            if (typeof namedProvider === 'function') {
                 console.log(`[WebTableWrapper] Используем провайдер заголовков: window.${headerProviderName}`);
-                return provider;
+                provider = namedProvider;
+            }
+        }
+        // Проверяем стандартные имена
+        else {
+            const standardProviders = ['hp', 'HeadersProvider'];
+            for (const providerName of standardProviders) {
+                if (window[providerName] && typeof window[providerName] === 'function') {
+                    console.log(`[WebTableWrapper] Используем провайдер заголовков: window.${providerName}`);
+                    provider = window[providerName];
+                    break;
+                }
             }
         }
 
-        const standardProviders = ['hp', 'HeadersProvider'];
-        for (const providerName of standardProviders) {
-            if (window[providerName] && typeof window[providerName] === 'function') {
-                console.log(`[WebTableWrapper] Используем провайдер заголовков: window.${providerName}`);
-                return window[providerName];
-            }
+        if (!provider) {
+            console.warn('[WebTableWrapper] Провайдер заголовков не найден');
         }
 
-        console.warn('[WebTableWrapper] Провайдер заголовков не найден');
-        return null;
-    }, [headerProviderName]);
+        // Кэшируем результат
+        headerProviderRef.current = provider;
+        return provider;
+    }, [headerProviderName]); // Убираем stateVersion из зависимостей
 
+    // Синхронизация с глобальным состоянием (оптимизированная)
+    useEffect(() => {
+        const syncStateFromGlobal = () => {
+            if (typeof window !== 'undefined' && window.VirtualizedTableState) {
+                const state = window.VirtualizedTableState;
+                setEditMode(prev => prev !== state.editMode ? state.editMode : prev);
+                setShowFilters(prev => prev !== state.showFilters ? state.showFilters : prev);
+                setStateVersion(prev => prev + 1);
+            }
+        };
+
+        // Начальная синхронизация
+        syncStateFromGlobal();
+
+        // Слушаем изменения глобального состояния
+        const handleGlobalStateChange = (event) => {
+            console.log('[TableWrapper] Глобальное состояние изменилось:', event.detail);
+            syncStateFromGlobal();
+        };
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('virtualized-table-state-change', handleGlobalStateChange);
+
+            // УБИРАЕМ частую проверку каждые 100ms - заменяем на редкую проверку
+            const syncInterval = setInterval(syncStateFromGlobal, 5000); // Раз в 5 секунд вместо 100ms
+
+            return () => {
+                window.removeEventListener('virtualized-table-state-change', handleGlobalStateChange);
+                clearInterval(syncInterval);
+            };
+        }
+    }, []);
+
+    // ИСПРАВЛЕННАЯ инициализация компонента с использованием refs
     useEffect(() => {
         const initializeWithRetry = () => {
             const dataProvider = getDataProvider();
@@ -104,22 +207,42 @@ const TableWrapper = ({
             if (dataProvider || headerProvider) {
                 console.log('[WebTableWrapper] Провайдеры найдены, инициализируем таблицу');
                 setIsReady(true);
+
+                // Обновляем глобальное состояние только если провайдеры изменились
+                if (typeof window !== 'undefined' && window.VirtualizedTableState) {
+                    if (!window.VirtualizedTableState.dataProvider && dataProvider) {
+                        window.VirtualizedTableState.dataProvider = dataProvider;
+                    }
+                    if (!window.VirtualizedTableState.headerProvider && headerProvider) {
+                        window.VirtualizedTableState.headerProvider = headerProvider;
+                    }
+                }
             } else {
-                console.log('[WebTableWrapper] Провайдеры не найдены, повторная проверка через 500мс');
-                setTimeout(initializeWithRetry, 500);
+                console.log('[WebTableWrapper] Провайдеры не найдены, повторная проверка через 1000мс');
+                setTimeout(initializeWithRetry, 1000); // Увеличиваем интервал
             }
         };
 
-        initializeWithRetry();
+        // Проверяем только если еще не готов
+        if (!isReady) {
+            initializeWithRetry();
 
-        const checkInterval = setInterval(() => {
-            if (!isReady) {
-                initializeWithRetry();
-            }
-        }, 1000);
+            const checkInterval = setInterval(() => {
+                if (!isReady) {
+                    initializeWithRetry();
+                }
+            }, 2000); // Увеличиваем интервал проверки
 
-        return () => clearInterval(checkInterval);
-    }, [isReady, getDataProvider, getHeaderProvider]);
+            return () => clearInterval(checkInterval);
+        }
+    }, [isReady]); // Убираем getDataProvider и getHeaderProvider из зависимостей
+
+    // Сброс кэша провайдеров при изменении имен
+    useEffect(() => {
+        dataProviderRef.current = null;
+        headerProviderRef.current = null;
+        lastCheckRef.current = 0;
+    }, [dataProviderName, headerProviderName]);
 
     if (!isReady) {
         return (
@@ -145,6 +268,11 @@ const TableWrapper = ({
                 <div style={{ fontSize: '12px', color: '#999' }}>
                     Ожидание провайдеров данных и заголовков
                 </div>
+                {typeof window !== 'undefined' && window.VirtualizedTableState && (
+                    <div style={{ fontSize: '10px', color: '#999' }}>
+                        Режим редактирования: {editMode ? 'включен' : 'выключен'}
+                    </div>
+                )}
                 <style>
                     {`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}
                 </style>
@@ -156,12 +284,18 @@ const TableWrapper = ({
         <Table
             maxWidth={maxWidth}
             maxHeight={maxHeight}
-            scrollBatchSize={parseInt(scrollBatchSize) || 7}
-            debug={debug === 'true' || debug === true}
+            scrollBatchSize={parseInt(scrollBatchSize) ||
+                (typeof window !== 'undefined' && window.VirtualizedTableState
+                    ? window.VirtualizedTableState.scrollBatchSize
+                    : 7)}
+            debug={debug === 'true' || debug === true ||
+                (typeof window !== 'undefined' && window.VirtualizedTableState?.debug)}
             colorTheme={colorTheme}
             dataProvider={getDataProvider()}
             headerProvider={getHeaderProvider()}
             onCellClick={handleCellClick}
+            editMode={editMode}
+            showFilters={showFilters}
         />
     );
 };
@@ -183,12 +317,60 @@ const TableWebComponent = r2wc(TableWrapper, {
 // Регистрация Web Component
 customElements.define('virtualized-table', TableWebComponent);
 
-// Проверка регистрации
+// Проверка регистрации и дополнительная диагностика
 if (typeof window !== 'undefined') {
     window.checkTableComponent = function() {
         const isRegistered = customElements.get('virtualized-table');
-        return !!isRegistered;
+        const state = window.VirtualizedTableState ? { ...window.VirtualizedTableState } : null;
+
+        console.log('[ComponentCheck] Статус:', {
+            registered: !!isRegistered,
+            globalState: !!window.VirtualizedTableState,
+            API: !!window.VirtualizedTableAPI,
+            state: state
+        });
+
+        return {
+            registered: !!isRegistered,
+            globalState: state
+        };
     };
+
+    // Автоматическая инициализация глобальных функций если они не существуют
+    setTimeout(() => {
+        if (!window.VirtualizedTableState) {
+            console.warn('[WebTableWrapper] VirtualizedTableState не найден, создаем базовый объект');
+            window.VirtualizedTableState = {
+                editMode: false,
+                showFilters: false,
+                debug: false,
+                scrollBatchSize: 7,
+                bufferSize: 4,
+                onCellClick: null,
+                onCellMove: null,
+                onDataLoad: null,
+                onError: null,
+                dataProvider: null,
+                headerProvider: null,
+                _initialized: false,
+                _loading: false,
+                _error: null
+            };
+        }
+
+        if (!window.VirtualizedTableAPI) {
+            console.warn('[WebTableWrapper] VirtualizedTableAPI не найден, создаем базовое API');
+            window.VirtualizedTableAPI = {
+                setEditMode: (enabled) => {
+                    window.VirtualizedTableState.editMode = enabled;
+                },
+                setShowFilters: (show) => {
+                    window.VirtualizedTableState.showFilters = show;
+                },
+                getState: () => ({ ...window.VirtualizedTableState })
+            };
+        }
+    }, 100);
 }
 
 export { TableWrapper };

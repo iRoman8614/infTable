@@ -6,6 +6,7 @@ import { useNodeVisibility } from './hooks/useNodeVisibility.js';
 import { useDragAndDrop } from './hooks/useDragAndDrop.js';
 import { parseDateString } from './utils/dateUtils.js';
 import { useHeadersLoader, useGlobalClickHandlers } from './hooks/useTableHelpers.js';
+import {getContrastTextColor} from "./utils/ContrastTextColor";
 
 export const Table = ({
                           maxWidth = '100%',
@@ -18,25 +19,42 @@ export const Table = ({
                           onDataLoad = null,
                           onError = null,
                           onCellClick = null,
-                          onCellMove = null
+                          onCellMove = null,
+                          editMode: propEditMode,
+                          showFilters: propShowFilters
                       }) => {
-    // Состояния
-    const [showFilters, setShowFilters] = useState(false);
-    const [editMode, setEditMode] = useState(false);
+    // Состояния с синхронизацией с глобальным состоянием
     const [clickLoading, setClickLoading] = useState(new Set());
+
+    // Получаем состояние из глобального объекта или используем пропсы
+    const editMode = useMemo(() => {
+        return typeof window !== 'undefined' && window.VirtualizedTableState
+            ? window.VirtualizedTableState.editMode
+            : (propEditMode || false);
+    }, [propEditMode]);
+
+    const showFilters = useMemo(() => {
+        return typeof window !== 'undefined' && window.VirtualizedTableState
+            ? window.VirtualizedTableState.showFilters
+            : (propShowFilters || false);
+    }, [propShowFilters]);
 
     // Отслеживание глобальных обработчиков
     const hasGlobalHandlers = useGlobalClickHandlers();
 
     // Загрузка заголовков с мемоизацией
-    const { headersData, headersError, isLoading: headersLoading } = useHeadersLoader(headerProvider);
+    const { headersData, headersError, isLoading: headersLoading } = useHeadersLoader(
+        typeof window !== 'undefined' && window.VirtualizedTableState?.headerProvider
+            ? window.VirtualizedTableState.headerProvider
+            : headerProvider
+    );
 
     const activeColorTheme = useMemo(() => {
         if (colorTheme) return colorTheme;
 
         return (value, isPast) => {
             if (value === "BGHeader") return '#dee3f5';
-            if (value === "DATE") return isPast ? '#acb5e3' : '#white';
+            if (value === "DATE") return isPast ? '#acb5e3' : 'white';
 
             switch (value) {
                 case 0: return isPast ? '#acb5e3' : 'white';
@@ -117,62 +135,21 @@ export const Table = ({
     const hasClickHandlers = useMemo(() => {
         const hasProps = !!onCellClick;
         const hasWindow = hasGlobalHandlers;
+        const hasGlobal = typeof window !== 'undefined' && window.VirtualizedTableState?.onCellClick;
 
         if (debug) {
             console.log('[Table] Click handlers check:', {
                 onCellClick: hasProps,
                 windowHandler: hasWindow,
-                windowObject: typeof window !== 'undefined' ? typeof window.onTableCellClick : 'undefined'
+                globalHandler: !!hasGlobal
             });
         }
 
-        return hasProps || hasWindow;
+        return hasProps || hasWindow || hasGlobal;
     }, [onCellClick, hasGlobalHandlers, debug]);
 
-    // Регистрация глобальных функций
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            // Функция для переключения режима редактирования
-            window.editMode = (enabled) => {
-                if (typeof enabled === 'boolean') {
-                    setEditMode(enabled);
-                    console.log(`[Table] Edit mode ${enabled ? 'enabled' : 'disabled'}`);
-                } else {
-                    console.warn('[Table] editMode expects boolean parameter');
-                }
-            };
-
-            // Функция для показа/скрытия фильтров
-            window.showFilters = (show) => {
-                if (typeof show === 'boolean') {
-                    setShowFilters(show);
-                    console.log(`[Table] Filters panel ${show ? 'opened' : 'closed'}`);
-                } else {
-                    console.warn('[Table] showFilters expects boolean parameter');
-                }
-            };
-
-            // Функция для получения текущего состояния
-            window.getTableState = () => {
-                return {
-                    editMode,
-                    showFilters,
-                    visibleLeafNodes: nodeVisibilityLogic.visibleLeafNodes.length,
-                    totalDates: tableLogic.dates.length,
-                    isInitialized: tableLogic.isInitialized
-                };
-            };
-
-            return () => {
-                delete window.editMode;
-                delete window.showFilters;
-                delete window.getTableState;
-            };
-        }
-    }, [editMode, showFilters, nodeVisibilityLogic.visibleLeafNodes.length, tableLogic.dates.length, tableLogic.isInitialized]);
-
-    // Обработчик клика
-    const handleCellClick = useCallback(async (date, nodeId) => {
+    // Обработчик клика с использованием глобального состояния
+    const handleCellClick = useCallback(async (date, nodeId, cellValue, event) => {
         const clickKey = `${date}-${nodeId}`;
 
         if (clickLoading.has(clickKey)) {
@@ -182,14 +159,22 @@ export const Table = ({
         setClickLoading(prev => new Set([...prev, clickKey]));
 
         try {
-            const cellData = { date, nodeId };
-            const jsonString = JSON.stringify(cellData);
+            const cellData = { date, nodeId, value: cellValue };
 
-            console.log('[Table] JSON string:', jsonString);
+            // Локальный обработчик (из пропсов)
+            if (onCellClick) {
+                await onCellClick(cellData, event);
+            }
 
-            if (typeof window !== 'undefined' &&
-                window.onTableCellClick &&
-                typeof window.onTableCellClick === 'function') {
+            // Глобальный обработчик из VirtualizedTableState
+            if (typeof window !== 'undefined' && window.VirtualizedTableState?.onCellClick) {
+                await window.VirtualizedTableState.onCellClick(cellData, event);
+            }
+
+            // Обработчик window.onTableCellClick (обратная совместимость)
+            if (typeof window !== 'undefined' && window.onTableCellClick) {
+                const jsonString = JSON.stringify(cellData);
+                console.log('[Table] JSON string:', jsonString);
 
                 if (window.onTableCellClick.constructor.name === 'AsyncFunction') {
                     await window.onTableCellClick(jsonString);
@@ -207,7 +192,7 @@ export const Table = ({
                 return updated;
             });
         }
-    }, [clickLoading]);
+    }, [clickLoading, onCellClick]);
 
     const getCellValue = useCallback((processedRow, nodeId) => {
         if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
@@ -236,7 +221,55 @@ export const Table = ({
         }
 
         const element = processedRow.elements[nodeId];
-        return element.draggable === true; // Только если явно указано true
+        return element.draggable === true;
+    }, []);
+
+    // Функция проверки нужно ли отображать ячейку (учитывает rowspan и colspan)
+    const shouldDisplayCell = useCallback((processedRow, nodeId) => {
+        if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
+            return true; // Показываем пустую ячейку если нет данных
+        }
+
+        const element = processedRow.elements[nodeId];
+        return element.displayed !== false; // Отображаем если не явно скрыта
+    }, []);
+
+    // Функция получения rowspan
+    const getCellRowspan = useCallback((processedRow, nodeId) => {
+        if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
+            return 1;
+        }
+
+        const element = processedRow.elements[nodeId];
+        return element.displayed === false ? 0 : (element.rowspan || 1);
+    }, []);
+
+    // НОВАЯ функция получения colspan
+    const getCellColspan = useCallback((processedRow, nodeId) => {
+        if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
+            return 1;
+        }
+
+        const element = processedRow.elements[nodeId];
+        return element.displayed === false ? 0 : (element.colspan || 1);
+    }, []);
+
+    // Слушаем изменения глобального состояния
+    useEffect(() => {
+        const handleStateChange = (event) => {
+            // Форсируем перерендер если изменилось состояние
+            if (event.detail.property === 'editMode' || event.detail.property === 'showFilters') {
+                // React автоматически перерендерит при изменении useMemo зависимостей
+            }
+        };
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('virtualized-table-state-change', handleStateChange);
+
+            return () => {
+                window.removeEventListener('virtualized-table-state-change', handleStateChange);
+            };
+        }
     }, []);
 
     // Вычисляем видимые даты и отступы для виртуализации
@@ -296,7 +329,11 @@ export const Table = ({
                     expandedNodes={nodeVisibilityLogic.expandedNodes}
                     searchTerm={nodeVisibilityLogic.searchTerm}
                     setSearchTerm={nodeVisibilityLogic.setSearchTerm}
-                    setShowFilters={setShowFilters}
+                    setShowFilters={() => {
+                        if (typeof window !== 'undefined' && window.VirtualizedTableAPI) {
+                            window.VirtualizedTableAPI.setShowFilters(false);
+                        }
+                    }}
                     toggleNodeVisibility={nodeVisibilityLogic.toggleNodeVisibility}
                     toggleNodeExpansion={nodeVisibilityLogic.toggleNodeExpansion}
                 />
@@ -334,7 +371,7 @@ export const Table = ({
                         </tr>
                     )}
 
-                    {/* Видимые строки данных */}
+                    {/* ОБНОВЛЕННЫЙ рендер видимых строк данных с поддержкой rowspan и colspan */}
                     {visibleDates.map((dateString, index) => {
                         const processedRow = tableLogic.processedCache[dateString];
                         const isLoading = !processedRow;
@@ -361,15 +398,19 @@ export const Table = ({
                                     {dateString}
                                 </td>
 
-                                {/* Колонки данных для каждого видимого узла */}
                                 {nodeVisibilityLogic.visibleLeafNodes.map((leafNode) => {
+                                    if (!shouldDisplayCell(processedRow, leafNode.id)) {
+                                        return null;
+                                    }
+
                                     const cellValue = processedRow ? getCellValue(processedRow, leafNode.id) : '-';
                                     const cellColor = processedRow ? getCellColor(processedRow, leafNode.id) : null;
                                     const isDraggable = processedRow ? getCellDraggable(processedRow, leafNode.id) : false;
+                                    const cellRowspan = processedRow ? getCellRowspan(processedRow, leafNode.id) : 1;
+                                    const cellColspan = processedRow ? getCellColspan(processedRow, leafNode.id) : 1;
                                     const clickKey = `${dateString}-${leafNode.id}`;
                                     const isCellLoading = clickLoading.has(clickKey);
 
-                                    // Получаем drag & drop стили
                                     const dragStyles = dragDropHandlers.getCellDragStyles(
                                         dateString,
                                         leafNode.id,
@@ -380,6 +421,8 @@ export const Table = ({
                                     return (
                                         <td
                                             key={`${dateString}-${leafNode.id}`}
+                                            rowSpan={cellRowspan > 1 ? cellRowspan : undefined}
+                                            colSpan={cellColspan > 1 ? cellColspan : undefined} // НОВОЕ
                                             draggable={editMode && isDraggable}
                                             onDoubleClick={editMode && hasClickHandlers ? (event) => {
                                                 console.log('[Table] Cell double-clicked, calling handler');
@@ -399,8 +442,11 @@ export const Table = ({
                                                 borderRight: '1px solid #ddd',
                                                 fontWeight: 'normal',
                                                 userSelect: 'none',
+                                                color: getContrastTextColor(cellValue.color),
                                                 opacity: isCellLoading ? 0.6 : 1,
                                                 position: 'relative',
+                                                // ОБНОВЛЕННЫЕ стили для colspan
+                                                width: cellColspan > 1 ? `${cellColspan * 50}px` : undefined,
                                                 ...dragStyles
                                             }}
                                         >

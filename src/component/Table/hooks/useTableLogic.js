@@ -3,53 +3,214 @@ import { formatDate, parseDateString } from '../utils/dateUtils.js';
 import { smartThrottle } from '../utils/performanceUtils.js';
 
 /**
- * Простая обработка данных с поддержкой rowspan
+ * Обработка данных таблицы с поддержкой rowspan и colspan
  */
-const processSimpleTableData = (dataArray, leafNodes) => {
-    const processedData = dataArray.map(dayData => {
+const processTableData = (dataArray, leafNodes) => {
+    const processedData = {};
+
+    // Создаем карту активных rowspan для отслеживания
+    const activeRowspans = new Map();
+    // Создаем карту активных colspan для отслеживания
+    const activeColspans = new Map();
+
+    dataArray.forEach((dayData, dayIndex) => {
         const elements = {};
+        const leafNodeIds = leafNodes.map(node => node.id);
 
-        leafNodes.forEach(leafNode => {
-            const columnData = dayData.columns?.find(col => col.headerId === leafNode.id);
-            const value = columnData ? columnData.value : '-';
-            const color = columnData ? columnData.color : null;
-            const draggable = columnData ? (columnData.draggable === true) : false;
-            const rowspan = columnData ? (columnData.rowspan || 1) : 1;
-
-            elements[leafNode.id] = {
-                status: value,
-                color: color,
-                draggable: draggable,
-                displayed: true,
-                rowspan: rowspan
-            };
+        // Создаем карту позиций листовых узлов для обработки colspan
+        const nodePositions = new Map();
+        leafNodeIds.forEach((nodeId, index) => {
+            nodePositions.set(nodeId, index);
         });
 
-        return {
+        // Проходим по всем возможным листовым узлам
+        leafNodeIds.forEach((leafNodeId, nodeIndex) => {
+            const columnData = dayData.columns?.find(col => col.headerId === leafNodeId);
+
+            if (columnData) {
+                // Есть данные для этой колонки
+                const value = columnData.value || '-';
+                const color = columnData.color || null;
+                const draggable = columnData.draggable === true;
+                const rowspan = columnData.rowspan || 1;
+                const colspan = columnData.colspan || 1;
+
+                elements[leafNodeId] = {
+                    status: value,
+                    color: color,
+                    draggable: draggable,
+                    displayed: true,
+                    rowspan: rowspan,
+                    colspan: colspan
+                };
+
+                // Регистрируем активный rowspan если больше 1
+                if (rowspan > 1) {
+                    const rowspanKey = `${leafNodeId}_${dayIndex}_rowspan`;
+                    activeRowspans.set(rowspanKey, {
+                        nodeId: leafNodeId,
+                        nodeIndex: nodeIndex,
+                        startIndex: dayIndex,
+                        endIndex: dayIndex + rowspan - 1,
+                        value: value,
+                        color: color,
+                        draggable: draggable,
+                        colspan: colspan
+                    });
+                }
+
+                // Обрабатываем colspan - скрываем следующие ячейки в этой строке
+                if (colspan > 1) {
+                    for (let i = 1; i < colspan; i++) {
+                        const nextNodeIndex = nodeIndex + i;
+                        if (nextNodeIndex < leafNodeIds.length) {
+                            const nextNodeId = leafNodeIds[nextNodeIndex];
+
+                            elements[nextNodeId] = {
+                                status: value,
+                                color: color,
+                                draggable: draggable,
+                                displayed: false, // НЕ отображаем эту ячейку
+                                rowspan: 1,
+                                colspan: 1,
+                                parentColspan: {
+                                    parentNodeId: leafNodeId,
+                                    parentNodeIndex: nodeIndex,
+                                    colspanIndex: i
+                                }
+                            };
+                        }
+                    }
+                }
+
+            } else {
+                // Проверяем, не находится ли эта ячейка под rowspan от предыдущих дат
+                let isUnderRowspan = false;
+
+                for (const [key, rowspanInfo] of activeRowspans.entries()) {
+                    if (rowspanInfo.nodeId === leafNodeId &&
+                        dayIndex > rowspanInfo.startIndex &&
+                        dayIndex <= rowspanInfo.endIndex) {
+
+                        // Эта ячейка скрыта под rowspan
+                        elements[leafNodeId] = {
+                            status: rowspanInfo.value,
+                            color: rowspanInfo.color,
+                            draggable: rowspanInfo.draggable,
+                            displayed: false, // НЕ отображаем эту ячейку
+                            rowspan: 1,
+                            colspan: 1,
+                            parentRowspan: rowspanInfo
+                        };
+
+                        // Если у родительского rowspan есть colspan, то скрываем и соседние ячейки
+                        if (rowspanInfo.colspan > 1) {
+                            for (let i = 1; i < rowspanInfo.colspan; i++) {
+                                const nextNodeIndex = rowspanInfo.nodeIndex + i;
+                                if (nextNodeIndex < leafNodeIds.length) {
+                                    const nextNodeId = leafNodeIds[nextNodeIndex];
+
+                                    elements[nextNodeId] = {
+                                        status: rowspanInfo.value,
+                                        color: rowspanInfo.color,
+                                        draggable: rowspanInfo.draggable,
+                                        displayed: false,
+                                        rowspan: 1,
+                                        colspan: 1,
+                                        parentRowspan: rowspanInfo,
+                                        parentColspan: {
+                                            parentNodeId: leafNodeId,
+                                            parentNodeIndex: rowspanInfo.nodeIndex,
+                                            colspanIndex: i
+                                        }
+                                    };
+                                }
+                            }
+                        }
+
+                        isUnderRowspan = true;
+                        break;
+                    }
+                }
+
+                if (!isUnderRowspan) {
+                    // Проверяем, не скрыта ли ячейка под colspan от другой ячейки в этой же строке
+                    let isUnderColspan = false;
+
+                    // Проверяем предыдущие ячейки в этой строке на наличие colspan
+                    for (let prevIndex = 0; prevIndex < nodeIndex; prevIndex++) {
+                        const prevNodeId = leafNodeIds[prevIndex];
+                        const prevColumnData = dayData.columns?.find(col => col.headerId === prevNodeId);
+
+                        if (prevColumnData && prevColumnData.colspan > 1) {
+                            const colspanEnd = prevIndex + prevColumnData.colspan - 1;
+                            if (nodeIndex <= colspanEnd) {
+                                // Эта ячейка скрыта под colspan
+                                elements[leafNodeId] = {
+                                    status: prevColumnData.value || '-',
+                                    color: prevColumnData.color || null,
+                                    draggable: prevColumnData.draggable === true,
+                                    displayed: false,
+                                    rowspan: 1,
+                                    colspan: 1,
+                                    parentColspan: {
+                                        parentNodeId: prevNodeId,
+                                        parentNodeIndex: prevIndex,
+                                        colspanIndex: nodeIndex - prevIndex
+                                    }
+                                };
+                                isUnderColspan = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!isUnderColspan) {
+                        // Нет данных и не под rowspan/colspan - показываем пустую ячейку
+                        elements[leafNodeId] = {
+                            status: '-',
+                            color: null,
+                            draggable: false,
+                            displayed: true,
+                            rowspan: 1,
+                            colspan: 1
+                        };
+                    }
+                }
+            }
+        });
+
+        processedData[dayData.date] = {
             date: dayData.date,
             elements: elements
         };
     });
 
-    return { processedData };
+    return { processedData, activeRowspans, activeColspans };
 };
 
+/**
+ * Вычисление расширенного диапазона с учетом rowspan и colspan
+ */
 const calculateExtendedRange = (visibleRange, dates, visibleData) => {
     let { start, end } = visibleRange;
     let extendedStart = start;
     let extendedEnd = end;
 
+    // Ищем активные rowspan которые могут влиять на видимый диапазон
     const searchStart = Math.max(0, start - 50);
+    const searchEnd = Math.min(dates.length, end + 50);
 
-    for (let i = searchStart; i < dates.length; i++) {
+    for (let i = searchStart; i < searchEnd; i++) {
         const dateString = dates[i];
         const rowData = visibleData[dateString];
         if (!rowData) continue;
 
         Object.values(rowData.elements).forEach(element => {
-            if (element.rowspan > 1) {
+            if (element.rowspan > 1 && element.displayed) {
                 const rowspanEnd = i + element.rowspan - 1;
 
+                // Если rowspan пересекается с видимым диапазоном
                 if (i <= end && rowspanEnd >= start) {
                     extendedStart = Math.min(extendedStart, i);
                     extendedEnd = Math.max(extendedEnd, rowspanEnd + 1);
@@ -69,7 +230,31 @@ const calculateExtendedRange = (visibleRange, dates, visibleData) => {
 };
 
 /**
- * Хук для управления логикой виртуализированной таблицы с поддержкой rowspan
+ * Проверка можно ли исключить дату из рендера (учитывая rowspan и colspan)
+ */
+const canExcludeDate = (dateIndex, dates, visibleData, bufferRange) => {
+    const dateString = dates[dateIndex];
+    const rowData = visibleData[dateString];
+
+    if (!rowData) return true;
+
+    // Проверяем, есть ли в этой дате rowspan который выходит за пределы буфера
+    for (const element of Object.values(rowData.elements)) {
+        if (element.rowspan > 1 && element.displayed) {
+            const rowspanEnd = dateIndex + element.rowspan - 1;
+
+            // Если rowspan выходит в видимую область, не можем исключить
+            if (rowspanEnd >= bufferRange.start) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+};
+
+/**
+ * Хук для управления логикой виртуализированной таблицы с поддержкой rowspan и colspan
  */
 export const useTableLogic = ({
                                   scrollBatchSize,
@@ -83,6 +268,8 @@ export const useTableLogic = ({
     const [visibleData, setVisibleData] = useState({});
     const [loadingDates, setLoadingDates] = useState(new Set());
     const [isInitialized, setIsInitialized] = useState(false);
+    const [activeRowspans, setActiveRowspans] = useState(new Map());
+    const [activeColspans, setActiveColspans] = useState(new Map());
 
     // Состояния viewport
     const [scrollTop, setScrollTop] = useState(0);
@@ -96,10 +283,21 @@ export const useTableLogic = ({
     const lastScrollTop = useRef(0);
     const isScrollCompensating = useRef(false);
 
+    // Получаем настройки из глобального состояния
+    const batchSize = useMemo(() => {
+        return typeof window !== 'undefined' && window.VirtualizedTableState
+            ? window.VirtualizedTableState.scrollBatchSize
+            : scrollBatchSize;
+    }, [scrollBatchSize]);
+
+    const bufferSize = useMemo(() => {
+        return typeof window !== 'undefined' && window.VirtualizedTableState
+            ? window.VirtualizedTableState.bufferSize
+            : 4;
+    }, []);
+
     // Константы
     const rowHeight = 40;
-    const bufferSize = 4;
-    const batchSize = scrollBatchSize;
 
     // Сегодняшняя дата
     const today = useMemo(() => {
@@ -150,16 +348,20 @@ export const useTableLogic = ({
             try {
                 console.log(`[useTableLogic] Загружаем батч: ${startDate}, направление: ${direction}, размер: ${batchSize}`);
 
-                if (!dataProvider) {
+                // Используем провайдер из глобального состояния или переданный параметр
+                const currentDataProvider = typeof window !== 'undefined' && window.VirtualizedTableState?.dataProvider
+                    ? window.VirtualizedTableState.dataProvider
+                    : dataProvider;
+
+                if (!currentDataProvider) {
                     throw new Error('dataProvider не установлен');
                 }
 
-                // ИСПРАВЛЕНИЕ: Вызываем провайдер с правильными параметрами
                 let jsonString;
-                if (dataProvider.constructor.name === 'AsyncFunction') {
-                    jsonString = await dataProvider(startDate, direction, batchSize);
+                if (currentDataProvider.constructor.name === 'AsyncFunction') {
+                    jsonString = await currentDataProvider(startDate, direction, batchSize);
                 } else {
-                    jsonString = dataProvider(startDate, direction, batchSize);
+                    jsonString = currentDataProvider(startDate, direction, batchSize);
                 }
 
                 if (typeof jsonString !== 'string') {
@@ -186,18 +388,35 @@ export const useTableLogic = ({
                 if (dataArray.length > 0) {
                     const firstRecord = dataArray[0];
                     if (!firstRecord.date || !firstRecord.columns || !Array.isArray(firstRecord.columns)) {
-                        throw new Error('Некорректный формат данных: ожидается {date: string, columns: [{headerId: string, value: string, rowspan?: number}]}');
+                        throw new Error('Некорректный формат данных: ожидается {date: string, columns: [{headerId: string, value: string, rowspan?: number, colspan?: number}]}');
                     }
                 }
 
-                // Обрабатываем данные с поддержкой rowspan
+                // Обрабатываем данные с поддержкой rowspan и colspan
                 if (dataArray.length > 0 && treeStructure.leafNodes) {
-                    const processed = processSimpleTableData(dataArray, treeStructure.leafNodes);
+                    const processed = processTableData(dataArray, treeStructure.leafNodes);
 
                     setVisibleData(prev => {
                         const updated = { ...prev };
-                        processed.processedData.forEach(processedRow => {
-                            updated[processedRow.date] = processedRow;
+                        Object.keys(processed.processedData).forEach(date => {
+                            updated[date] = processed.processedData[date];
+                        });
+                        return updated;
+                    });
+
+                    // Обновляем активные rowspan и colspan
+                    setActiveRowspans(prev => {
+                        const updated = new Map(prev);
+                        processed.activeRowspans.forEach((value, key) => {
+                            updated.set(key, value);
+                        });
+                        return updated;
+                    });
+
+                    setActiveColspans(prev => {
+                        const updated = new Map(prev);
+                        processed.activeColspans?.forEach((value, key) => {
+                            updated.set(key, value);
                         });
                         return updated;
                     });
@@ -210,8 +429,13 @@ export const useTableLogic = ({
                     return updated;
                 });
 
-                if (onDataLoad) {
-                    onDataLoad(dataArray, startDate, batchSize);
+                // Вызываем callback из глобального состояния или переданный параметр
+                const currentOnDataLoad = typeof window !== 'undefined' && window.VirtualizedTableState?.onDataLoad
+                    ? window.VirtualizedTableState.onDataLoad
+                    : onDataLoad;
+
+                if (currentOnDataLoad) {
+                    currentOnDataLoad(dataArray, startDate, batchSize);
                 }
 
                 return { data: dataArray };
@@ -234,8 +458,13 @@ export const useTableLogic = ({
                     return updated;
                 });
 
-                if (onError) {
-                    onError(error, { startDate, direction, batchSize });
+                // Вызываем callback ошибки из глобального состояния или переданный параметр
+                const currentOnError = typeof window !== 'undefined' && window.VirtualizedTableState?.onError
+                    ? window.VirtualizedTableState.onError
+                    : onError;
+
+                if (currentOnError) {
+                    currentOnError(error, { startDate, direction, batchSize });
                 }
                 throw error;
             }
@@ -247,24 +476,32 @@ export const useTableLogic = ({
 
         fetchingPromises.current[batchKey] = promise;
         return promise;
-    }, [dataProvider, onDataLoad, onError, treeStructure.leafNodes]);
+    }, [dataProvider, onDataLoad, onError, treeStructure.leafNodes, batchSize]);
 
-    // Очистка невидимых данных с учетом rowspan
+    // Очистка невидимых данных с учетом rowspan и colspan
     const cleanupInvisibleData = useCallback(() => {
         const extendedRange = calculateExtendedRange(baseVisibleRange, dates, visibleData);
         const keepStart = Math.max(0, extendedRange.start - bufferSize);
         const keepEnd = Math.min(dates.length, extendedRange.end + bufferSize);
-        const keepDates = new Set(dates.slice(keepStart, keepEnd));
 
         setVisibleData(prev => {
             const cleaned = {};
             let removedCount = 0;
 
-            Object.keys(prev).forEach(date => {
-                if (keepDates.has(date)) {
-                    cleaned[date] = prev[date];
-                } else {
-                    removedCount++;
+            dates.forEach((date, index) => {
+                if (index >= keepStart && index < keepEnd) {
+                    // Оставляем в пределах расширенного диапазона
+                    if (prev[date]) {
+                        cleaned[date] = prev[date];
+                    }
+                } else if (prev[date]) {
+                    // Проверяем, можно ли удалить эту дату (учитываем rowspan)
+                    if (canExcludeDate(index, dates, prev, { start: keepStart, end: keepEnd })) {
+                        removedCount++;
+                    } else {
+                        // Не можем удалить из-за активного rowspan
+                        cleaned[date] = prev[date];
+                    }
                 }
             });
 
@@ -274,9 +511,30 @@ export const useTableLogic = ({
 
             return cleaned;
         });
+
+        // Очистка устаревших rowspan и colspan
+        setActiveRowspans(prev => {
+            const cleaned = new Map();
+            prev.forEach((value, key) => {
+                if (value.endIndex >= keepStart - bufferSize) {
+                    cleaned.set(key, value);
+                }
+            });
+            return cleaned;
+        });
+
+        setActiveColspans(prev => {
+            const cleaned = new Map();
+            prev.forEach((value, key) => {
+                if (value.endIndex >= keepStart - bufferSize) {
+                    cleaned.set(key, value);
+                }
+            });
+            return cleaned;
+        });
     }, [baseVisibleRange, dates, visibleData, bufferSize]);
 
-    // ИСПРАВЛЕННАЯ загрузка видимых данных
+    // Загрузка видимых данных
     const loadVisibleData = useCallback(async () => {
         const { start, end } = visibleRange;
         const visibleDates = dates.slice(start, end);
@@ -291,7 +549,7 @@ export const useTableLogic = ({
         // Отмечаем даты как загружающиеся
         setLoadingDates(prev => new Set([...prev, ...missingDates]));
 
-        // Группируем недостающие даты в непрерывные блоки для более эффективной загрузки
+        // Группируем недостающие даты в непрерывные блоки
         const dateGroups = [];
         let currentGroup = [missingDates[0]];
 
@@ -301,10 +559,8 @@ export const useTableLogic = ({
             const daysDiff = (currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
 
             if (daysDiff === 1) {
-                // Непрерывная дата - добавляем в текущую группу
                 currentGroup.push(missingDates[i]);
             } else {
-                // Разрыв - начинаем новую группу
                 dateGroups.push(currentGroup);
                 currentGroup = [missingDates[i]];
             }
@@ -462,7 +718,7 @@ export const useTableLogic = ({
         }
     }, [handleScrollThrottled]);
 
-    // ИСПРАВЛЕННАЯ инициализация таблицы
+    // Инициализация таблицы
     useEffect(() => {
         if (!isInitialized && dates.length === 0 && treeStructure.leafNodes.length > 0) {
             const initialDates = generateInitialDates();
@@ -508,12 +764,21 @@ export const useTableLogic = ({
                                 setScrollTop(targetScroll);
                                 setIsInitialized(true);
 
+                                // Обновляем глобальное состояние
+                                if (typeof window !== 'undefined' && window.VirtualizedTableState) {
+                                    window.VirtualizedTableState._initialized = true;
+                                }
+
                                 console.log('[Init] Инициализация завершена');
                             }
                         }, 200);
                     } catch (error) {
                         console.error('[Init] Ошибка при загрузке начальных данных:', error);
                         setIsInitialized(true); // Инициализируем даже при ошибке
+
+                        if (typeof window !== 'undefined' && window.VirtualizedTableState) {
+                            window.VirtualizedTableState._error = error.message;
+                        }
                     }
                 }
             };
@@ -576,6 +841,13 @@ export const useTableLogic = ({
         }
     }, [visibleRange, dates, loadBatch, batchSize]);
 
+    // Синхронизация с глобальным состоянием
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.VirtualizedTableState) {
+            window.VirtualizedTableState._loading = loadingDates.size > 0;
+        }
+    }, [loadingDates.size]);
+
     return {
         dates,
         processedCache,
@@ -590,6 +862,8 @@ export const useTableLogic = ({
         scrollVelocity,
         rowHeight,
         bufferSize,
+        activeRowspans,
+        activeColspans,
         handleScroll,
         loadBatch,
         refreshViewport
