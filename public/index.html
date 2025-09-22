@@ -1,101 +1,663 @@
+<!--<!DOCTYPE html>-->
+<!--<html lang="ru">-->
+<!--<head>-->
+<!--  <meta charset="utf-8" />-->
+<!--  <meta name="viewport" content="width=device-width, initial-scale=1" />-->
+<!--  <title>Виртуализированная таблица с colspan и глобальным состоянием</title>-->
+<!--  <style>-->
+<!--    body {-->
+<!--      font-family: Arial, sans-serif;-->
+<!--      margin: 20px;-->
+<!--      background-color: #f5f5f5;-->
+<!--    }-->
+<!--    h1 {-->
+<!--      color: #333;-->
+<!--      margin-bottom: 20px;-->
+<!--    }-->
+<!--    virtualized-table {-->
+<!--      background: white;-->
+<!--      border-radius: 4px;-->
+<!--      box-shadow: 0 2px 4px rgba(0,0,0,0.1);-->
+<!--    }-->
+<!--    .controls {-->
+<!--      background: #f8f9fa;-->
+<!--      border: 1px solid #dee2e6;-->
+<!--      padding: 15px;-->
+<!--      border-radius: 4px;-->
+<!--      margin-bottom: 20px;-->
+<!--    }-->
+<!--    .control-button {-->
+<!--      background: #007bff;-->
+<!--      color: white;-->
+<!--      border: none;-->
+<!--      padding: 8px 16px;-->
+<!--      margin: 5px;-->
+<!--      border-radius: 4px;-->
+<!--      cursor: pointer;-->
+<!--    }-->
+<!--    .control-button:hover {-->
+<!--      background: #0056b3;-->
+<!--    }-->
+<!--    .control-button.active {-->
+<!--      background: #28a745;-->
+<!--    }-->
+<!--    .status-panel {-->
+<!--      background: #e9ecef;-->
+<!--      border: 1px solid #ced4da;-->
+<!--      padding: 10px;-->
+<!--      border-radius: 4px;-->
+<!--      margin-bottom: 20px;-->
+<!--      font-family: monospace;-->
+<!--      font-size: 12px;-->
+<!--    }-->
+<!--    .api-example {-->
+<!--      background: #f8f9fa;-->
+<!--      border: 1px solid #e9ecef;-->
+<!--      padding: 15px;-->
+<!--      border-radius: 4px;-->
+<!--      margin-bottom: 20px;-->
+<!--    }-->
+<!--    .api-example h3 {-->
+<!--      margin-top: 0;-->
+<!--      color: #495057;-->
+<!--    }-->
+<!--    .api-example code {-->
+<!--      background: #f1f3f4;-->
+<!--      padding: 2px 4px;-->
+<!--      border-radius: 2px;-->
+<!--      font-family: 'Courier New', monospace;-->
+<!--    }-->
+<!--  </style>-->
+<!--</head>-->
+<!--<body>-->
+<!--<h1>Виртуализированная таблица с поддержкой colspan и глобальным состоянием</h1>-->
+
+<!--<div class="api-example">-->
+<!--  <h3>Новый API для управления таблицей</h3>-->
+<!--  <p>Используйте <code>VirtualizedTableAPI</code> для управления состоянием:</p>-->
+<!--  <ul>-->
+<!--    <li><code>VirtualizedTableAPI.setEditMode(true/false)</code> - режим редактирования</li>-->
+<!--    <li><code>VirtualizedTableAPI.setShowFilters(true/false)</code> - панель фильтров</li>-->
+<!--    <li><code>VirtualizedTableAPI.setScrollBatchSize(number)</code> - размер батча</li>-->
+<!--    <li><code>VirtualizedTableAPI.getState()</code> - получить текущее состояние</li>-->
+<!--  </ul>-->
+<!--</div>-->
+
+<!--<div class="controls">-->
+<!--  <h3>Управление таблицей через новый API</h3>-->
+<!--  <button class="control-button" onclick="toggleEditMode()">Переключить режим редактирования</button>-->
+<!--  <button class="control-button" onclick="toggleFilters()">Переключить фильтры</button>-->
+<!--  <button class="control-button" onclick="setBatchSize(5)">Батч: 5</button>-->
+<!--  <button class="control-button" onclick="setBatchSize(10)">Батч: 10</button>-->
+<!--  <button class="control-button" onclick="setBatchSize(20)">Батч: 20</button>-->
+<!--  <button class="control-button" onclick="refreshTable()">Обновить данные</button>-->
+<!--</div>-->
+
+<!--<div class="status-panel" id="statusPanel">-->
+<!--  Состояние таблицы: загрузка...-->
+<!--</div>-->
+
+<!--<virtualized-table-->
+<!--        max-width="100%"-->
+<!--        max-height="600px"-->
+<!--        scroll-batch-size="14"-->
+<!--        debug="true">-->
+<!--</virtualized-table>-->
+
+<!--<script>-->
+<!--  // Инициализация глобального состояния (будет создано автоматически компонентом)-->
+
+<!--  // 1. Провайдер заголовков с новой структурой-->
+<!--  window.hp = async function() {-->
+<!--    console.log('[ASYNC HP] Загрузка заголовков...');-->
+<!--    await new Promise(resolve => setTimeout(resolve, 100));-->
+
+<!--    return {-->
+<!--      "headers": [-->
+<!--        {-->
+<!--          "id": "factory1",-->
+<!--          "parentId": null,-->
+<!--          "type": "node",-->
+<!--          "name": "Завод №1 'Металлург'",-->
+<!--          "metadata": {-->
+<!--            "color": "#343434",-->
+<!--            "tooltip": "Основной производственный комплекс",-->
+<!--            "workCount": 150-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "workshop1",-->
+<!--          "parentId": "factory1",-->
+<!--          "type": "assembly",-->
+<!--          "name": "Цех сборки №1",-->
+<!--          "metadata": {-->
+<!--            "color": "#4caf50",-->
+<!--            "tooltip": "Основной сборочный цех",-->
+<!--            "workCount": 45-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "line1",-->
+<!--          "parentId": "workshop1",-->
+<!--          "type": "component",-->
+<!--          "name": "Линия А",-->
+<!--          "metadata": {-->
+<!--            "color": "#ff9800",-->
+<!--            "tooltip": "Автоматизированная линия сборки",-->
+<!--            "workCount": 15-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "station1",-->
+<!--          "parentId": "line1",-->
+<!--          "type": "component",-->
+<!--          "name": "Станция 1",-->
+<!--          "metadata": {-->
+<!--            "color": "#f44336",-->
+<!--            "tooltip": "Начальная станция сборки",-->
+<!--            "workCount": 3-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "station2",-->
+<!--          "parentId": "line1",-->
+<!--          "type": "component",-->
+<!--          "name": "Станция 2",-->
+<!--          "metadata": {-->
+<!--            "color": "#f44336",-->
+<!--            "tooltip": "Промежуточная станция",-->
+<!--            "workCount": 4-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "station3",-->
+<!--          "parentId": "line1",-->
+<!--          "type": "component",-->
+<!--          "name": "Станция 3",-->
+<!--          "metadata": {-->
+<!--            "color": "#f44336",-->
+<!--            "tooltip": "Финальная станция",-->
+<!--            "workCount": 5-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "station4",-->
+<!--          "parentId": "line1",-->
+<!--          "type": "component",-->
+<!--          "name": "Станция 4",-->
+<!--          "metadata": {-->
+<!--            "color": "#9c27b0",-->
+<!--            "tooltip": "Контрольная станция",-->
+<!--            "workCount": 2-->
+<!--          }-->
+<!--        },-->
+<!--        {-->
+<!--          "id": "station5",-->
+<!--          "parentId": "line1",-->
+<!--          "type": "component",-->
+<!--          "name": "Станция 5",-->
+<!--          "metadata": {-->
+<!--            "color": "#795548",-->
+<!--            "tooltip": "Упаковочная станция",-->
+<!--            "workCount": 3-->
+<!--          }-->
+<!--        }-->
+<!--      ]-->
+<!--    };-->
+<!--  };-->
+
+<!--  // 2. Провайдер данных с поддержкой rowspan и colspan-->
+<!--  window.dp = async function(startDate, direction, batchSize) {-->
+<!--    console.log(`[DP] Загрузка данных: ${startDate}, направление: ${direction}, размер: ${batchSize}`);-->
+
+<!--    const data = {-->
+<!--      "data": [-->
+<!--        {-->
+<!--          "date": "10.09.2025",-->
+<!--          "columns": [-->
+<!--            {-->
+<!--              "headerId": "station1",-->
+<!--              "value": "М",-->
+<!--              "rowspan": 7,-->
+<!--              "color": "#ffeb3b",-->
+<!--              "dragable": true-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station2",-->
+<!--              "value": "Р",-->
+<!--              "color": "brown",-->
+<!--              "draggable": true-->
+<!--            },-->
+<!--            // station2 скрыта colspan от station1-->
+<!--            {-->
+<!--              "headerId": "station3",-->
+<!--              "value": "П",-->
+<!--              "color": "#e91e63",-->
+<!--              "draggable": true-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station4",-->
+<!--              "value": "Р",-->
+<!--              "color": "#9c27b0",-->
+<!--              "draggable": true-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station5",-->
+<!--              "value": "П",-->
+<!--              "color": "#795548",-->
+<!--              "draggable": true-->
+<!--            }-->
+<!--          ]-->
+<!--        },-->
+<!--        {-->
+<!--          "date": "11.09.2025",-->
+<!--          "columns": [-->
+<!--            // station1 и station2 скрыты rowspan от предыдущей строки-->
+<!--            {-->
+<!--              "headerId": "station2",-->
+<!--              "value": "П",-->
+<!--              "color": "#ffeb3b",-->
+<!--              "draggable": true-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station3",-->
+<!--              "value": "М",-->
+<!--              "draggable": false-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station4",-->
+<!--              "value": "О",-->
+<!--              "draggable": false-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station5",-->
+<!--              "value": "П",-->
+<!--              "draggable": false-->
+<!--            }-->
+<!--          ]-->
+<!--        },-->
+<!--        {-->
+<!--          "date": "12.09.2025",-->
+<!--          "columns": [-->
+<!--            {-->
+<!--              "headerId": "station2",-->
+<!--              "value": "ПР",-->
+<!--              "color": "blue",-->
+<!--              "draggable": true-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station3",-->
+<!--              "value": "П",-->
+<!--              "draggable": true-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station4",-->
+<!--              "value": "М",-->
+<!--              "draggable": true-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station5",-->
+<!--              "value": "О"-->
+<!--            }-->
+<!--          ]-->
+<!--        },-->
+<!--        {-->
+<!--          "date": "13.09.2025",-->
+<!--          "columns": [-->
+<!--            {-->
+<!--              "headerId": "station2",-->
+<!--              "value": "О",-->
+<!--              "color": "orange",-->
+<!--              "draggable": true-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station3",-->
+<!--              "value": "Р"-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station4",-->
+<!--              "value": "М"-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station5",-->
+<!--              "value": "Р"-->
+<!--            }-->
+<!--          ]-->
+<!--        },-->
+<!--        {-->
+<!--          "date": "14.09.2025",-->
+<!--          "columns": [-->
+<!--            // station1 и station2 все еще скрыты rowspan-->
+<!--            {-->
+<!--              "headerId": "station2",-->
+<!--              "value": "М",-->
+<!--              "color": "black",-->
+<!--              "draggable": true-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station3",-->
+<!--              "value": "П"-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station4",-->
+<!--              "value": "Р"-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station5",-->
+<!--              "value": "П"-->
+<!--            }-->
+<!--          ]-->
+<!--        },-->
+<!--        {-->
+<!--          "date": "15.09.2025",-->
+<!--          "columns": [-->
+<!--            // station1 и station2 все еще скрыты rowspan-->
+<!--            {-->
+<!--              "headerId": "station2",-->
+<!--              "value": "О",-->
+<!--              "color": "white",-->
+<!--              "draggable": true-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station3",-->
+<!--              "value": "Р"-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station4",-->
+<!--              "value": "П",-->
+<!--              "rowspan": 5,-->
+<!--              "color": "#4caf50"-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station5",-->
+<!--              "value": "Р"-->
+<!--            }-->
+<!--          ]-->
+<!--        },-->
+<!--        {-->
+<!--          "date": "16.09.2025",-->
+<!--          "columns": [-->
+<!--            // station1 и station2 все еще скрыты rowspan до 16.09-->
+<!--            {-->
+<!--              "headerId": "station2",-->
+<!--              "value": "П",-->
+<!--              "color": "#ffeb3b",-->
+<!--              "draggable": true-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station3",-->
+<!--              "value": "Р"-->
+<!--            },-->
+<!--            // station4 скрыта rowspan от предыдущей строки-->
+<!--            {-->
+<!--              "headerId": "station5",-->
+<!--              "value": "Р"-->
+<!--            }-->
+<!--          ]-->
+<!--        },-->
+<!--        {-->
+<!--          "date": "17.09.2025",-->
+<!--          "columns": [-->
+<!--            // Теперь все станции видны-->
+<!--            {-->
+<!--              "headerId": "station1",-->
+<!--              "value": "П"-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station2",-->
+<!--              "value": "М"-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station3",-->
+<!--              "value": "Р"-->
+<!--            },-->
+<!--            // station4 все еще скрыта rowspan-->
+<!--            {-->
+<!--              "headerId": "station5",-->
+<!--              "value": "Р"-->
+<!--            }-->
+<!--          ]-->
+<!--        },-->
+<!--        {-->
+<!--          "date": "18.09.2025",-->
+<!--          "columns": [-->
+<!--            {-->
+<!--              "headerId": "station1",-->
+<!--              "value": "Р",-->
+<!--              "dragable": true,-->
+<!--              "colspan": 3,-->
+<!--              "color": "#00bcd4"-->
+<!--            },-->
+<!--            // station2 и station3 скрыты colspan от station1-->
+<!--            // station4 все еще скрыта rowspan-->
+<!--            {-->
+<!--              "headerId": "station5",-->
+<!--              "value": "Р"-->
+<!--            }-->
+<!--          ]-->
+<!--        },-->
+<!--        {-->
+<!--          "date": "19.09.2025",-->
+<!--          "columns": [-->
+<!--            {-->
+<!--              "headerId": "station1",-->
+<!--              "value": "П"-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station2",-->
+<!--              "value": "М"-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station3",-->
+<!--              "value": "Р"-->
+<!--            },-->
+<!--            // station4 все еще скрыта rowspan-->
+<!--            {-->
+<!--              "headerId": "station5",-->
+<!--              "value": "Р"-->
+<!--            }-->
+<!--          ]-->
+<!--        },-->
+<!--        {-->
+<!--          "date": "20.09.2025",-->
+<!--          "columns": [-->
+<!--            {-->
+<!--              "headerId": "station1",-->
+<!--              "value": "П"-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station2",-->
+<!--              "value": "М"-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station3",-->
+<!--              "value": "Р"-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station4",-->
+<!--              "value": "П"-->
+<!--            },-->
+<!--            {-->
+<!--              "headerId": "station5",-->
+<!--              "value": "Р"-->
+<!--            }-->
+<!--          ]-->
+<!--        }-->
+<!--      ]-->
+<!--    };-->
+
+<!--    return JSON.stringify(data);-->
+<!--  };-->
+
+<!--    // 3. Управляющие функции для нового API-->
+<!--    function toggleEditMode() {-->
+<!--      // Ждем когда VirtualizedTableAPI будет доступен-->
+<!--      if (typeof window.VirtualizedTableAPI !== 'undefined') {-->
+<!--        const currentState = window.VirtualizedTableAPI.getState();-->
+<!--        window.VirtualizedTableAPI.setEditMode(!currentState.editMode);-->
+<!--        updateStatusPanel();-->
+<!--      } else {-->
+<!--        console.warn('VirtualizedTableAPI еще не готов');-->
+<!--      }-->
+<!--    }-->
+
+<!--    function toggleFilters() {-->
+<!--      if (typeof window.VirtualizedTableAPI !== 'undefined') {-->
+<!--        const currentState = window.VirtualizedTableAPI.getState();-->
+<!--        window.VirtualizedTableAPI.setShowFilters(!currentState.showFilters);-->
+<!--        updateStatusPanel();-->
+<!--      }-->
+<!--    }-->
+
+<!--    function setBatchSize(size) {-->
+<!--      if (typeof window.VirtualizedTableAPI !== 'undefined') {-->
+<!--        window.VirtualizedTableAPI.setScrollBatchSize(size);-->
+<!--        updateStatusPanel();-->
+<!--      }-->
+<!--    }-->
+
+<!--    function refreshTable() {-->
+<!--      if (typeof window.VirtualizedTableAPI !== 'undefined') {-->
+<!--        window.VirtualizedTableAPI.refreshViewport();-->
+<!--      }-->
+<!--    }-->
+
+<!--    // 4. Обновление панели состояния-->
+<!--    function updateStatusPanel() {-->
+<!--      const panel = document.getElementById('statusPanel');-->
+
+<!--      if (typeof window.VirtualizedTableAPI !== 'undefined') {-->
+<!--        const state = window.VirtualizedTableAPI.getState();-->
+
+<!--        panel.innerHTML = `-->
+<!--        <strong>Состояние VirtualizedTableState:</strong><br>-->
+<!--        • Режим редактирования: <span style="color: ${state.editMode ? 'green' : 'red'}">${state.editMode ? 'ВКЛЮЧЕН' : 'выключен'}</span><br>-->
+<!--        • Панель фильтров: <span style="color: ${state.showFilters ? 'green' : 'red'}">${state.showFilters ? 'ОТКРЫТА' : 'закрыта'}</span><br>-->
+<!--        • Размер батча: ${state.scrollBatchSize}<br>-->
+<!--        • Размер буфера: ${state.bufferSize}<br>-->
+<!--        • Инициализирована: ${state.initialized ? 'Да' : 'Нет'}<br>-->
+<!--        • Загрузка: ${state.loading ? 'Да' : 'Нет'}<br>-->
+<!--        ${state.error ? `• Ошибка: ${state.error}<br>` : ''}-->
+<!--      `;-->
+
+<!--        // Обновляем стили кнопок-->
+<!--        const buttons = document.querySelectorAll('.control-button');-->
+<!--        buttons.forEach(btn => {-->
+<!--          btn.classList.remove('active');-->
+<!--          if (btn.textContent.includes('редактирования') && state.editMode) {-->
+<!--            btn.classList.add('active');-->
+<!--          }-->
+<!--          if (btn.textContent.includes('фильтры') && state.showFilters) {-->
+<!--            btn.classList.add('active');-->
+<!--          }-->
+<!--        });-->
+<!--      } else {-->
+<!--        panel.innerHTML = `-->
+<!--        <strong>Статус:</strong> Ожидание инициализации VirtualizedTableAPI...<br>-->
+<!--        <small>Компонент еще загружается</small>-->
+<!--      `;-->
+<!--      }-->
+<!--    }-->
+
+<!--    // 5. Обработчик кликов по ячейкам-->
+<!--    window.onTableCellClick = function(cellDataJson) {-->
+<!--      console.log('[HTML] Получен клик по ячейке:', cellDataJson);-->
+
+<!--      try {-->
+<!--        const cellData = JSON.parse(cellDataJson);-->
+<!--        alert(`Ячейка кликнута!\nДата: ${cellData.date}\nУзел: ${cellData.nodeId}\nЗначение: ${cellData.value || 'не указано'}`);-->
+<!--      } catch (error) {-->
+<!--        console.error('[HTML] Ошибка парсинга данных ячейки:', error);-->
+<!--      }-->
+<!--    };-->
+
+<!--    // 6. Слушатель изменений глобального состояния-->
+<!--    window.addEventListener('virtualized-table-state-change', function(event) {-->
+<!--      console.log('[HTML] Состояние таблицы изменилось:', event.detail);-->
+<!--      updateStatusPanel();-->
+<!--    });-->
+
+<!--    // 7. Загрузка компонента-->
+<!--    const script = document.createElement('script');-->
+<!--    script.src = '../dist/virtualized-table.js';-->
+
+<!--    script.onload = function() {-->
+<!--      console.log('[HTML] ✅ Компонент загружен успешно');-->
+
+<!--      // Ждем инициализацию API-->
+<!--      const checkAPI = () => {-->
+<!--        if (typeof window.VirtualizedTableAPI !== 'undefined') {-->
+<!--          console.log('[HTML] ✅ VirtualizedTableAPI готов');-->
+<!--          updateStatusPanel();-->
+
+<!--          // Настраиваем обработчик кликов через новый API-->
+<!--          if (window.VirtualizedTableState) {-->
+<!--            window.VirtualizedTableState.onCellClick = function(cellData, event) {-->
+<!--              console.log('[HTML] Клик через новый API:', cellData);-->
+<!--              alert(`Новый API!\nДата: ${cellData.date}\nУзел: ${cellData.nodeId}\nЗначение: ${cellData.value || '-'}`);-->
+<!--            };-->
+<!--          }-->
+<!--        } else {-->
+<!--          setTimeout(checkAPI, 100);-->
+<!--        }-->
+<!--      };-->
+
+<!--      checkAPI();-->
+<!--    };-->
+
+<!--    script.onerror = function() {-->
+<!--      console.error('[HTML] ❌ Ошибка загрузки компонента');-->
+<!--      document.querySelector('virtualized-table').innerHTML = `-->
+<!--        <div style="padding: 20px; text-align: center; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px;">-->
+<!--          <h3>Ошибка загрузки компонента</h3>-->
+<!--          <p>Не удалось загрузить файл virtualized-table.js</p>-->
+<!--          <p><small>Проверьте путь к файлу и убедитесь, что он собран с поддержкой нового API</small></p>-->
+<!--        </div>-->
+<!--      `;-->
+<!--    };-->
+
+<!--    document.head.appendChild(script);-->
+
+<!--    // 8. Периодическое обновление статуса-->
+<!--    setInterval(updateStatusPanel, 2000);-->
+
+<!--</script>-->
+
+<!--<div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 4px;">-->
+<!--  <h3>Ключевые особенности новой версии:</h3>-->
+<!--  <ul>-->
+<!--    <li><strong>Глобальное состояние:</strong> <code>VirtualizedTableState</code> содержит все настройки</li>-->
+<!--    <li><strong>Единый API:</strong> <code>VirtualizedTableAPI</code> для управления таблицей</li>-->
+<!--    <li><strong>Поддержка colspan:</strong> ячейки могут объединяться по горизонтали</li>-->
+<!--    <li><strong>Поддержка rowspan:</strong> ячейки могут объединяться по вертикали</li>-->
+<!--    <li><strong>Умная виртуализация:</strong> учитывает объединенные ячейки</li>-->
+<!--    <li><strong>Vaadin-совместимость:</strong> подходит для интеграции в Java Vaadin</li>-->
+<!--  </ul>-->
+<!--</div>-->
+
+<!--</body>-->
+<!--</html>-->
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Виртуализированная таблица с colspan и глобальным состоянием</title>
+  <title>Виртуализированная таблица</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
       background-color: #f5f5f5;
     }
-    h1 {
-      color: #333;
-      margin-bottom: 20px;
-    }
     virtualized-table {
       background: white;
       border-radius: 4px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .controls {
-      background: #f8f9fa;
-      border: 1px solid #dee2e6;
-      padding: 15px;
-      border-radius: 4px;
-      margin-bottom: 20px;
-    }
-    .control-button {
-      background: #007bff;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      margin: 5px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .control-button:hover {
-      background: #0056b3;
-    }
-    .control-button.active {
-      background: #28a745;
-    }
-    .status-panel {
-      background: #e9ecef;
-      border: 1px solid #ced4da;
-      padding: 10px;
-      border-radius: 4px;
-      margin-bottom: 20px;
-      font-family: monospace;
-      font-size: 12px;
-    }
-    .api-example {
-      background: #f8f9fa;
-      border: 1px solid #e9ecef;
-      padding: 15px;
-      border-radius: 4px;
-      margin-bottom: 20px;
-    }
-    .api-example h3 {
-      margin-top: 0;
-      color: #495057;
-    }
-    .api-example code {
-      background: #f1f3f4;
-      padding: 2px 4px;
-      border-radius: 2px;
-      font-family: 'Courier New', monospace;
-    }
   </style>
 </head>
 <body>
-<h1>Виртуализированная таблица с поддержкой colspan и глобальным состоянием</h1>
-
-<div class="api-example">
-  <h3>Новый API для управления таблицей</h3>
-  <p>Используйте <code>VirtualizedTableAPI</code> для управления состоянием:</p>
-  <ul>
-    <li><code>VirtualizedTableAPI.setEditMode(true/false)</code> - режим редактирования</li>
-    <li><code>VirtualizedTableAPI.setShowFilters(true/false)</code> - панель фильтров</li>
-    <li><code>VirtualizedTableAPI.setScrollBatchSize(number)</code> - размер батча</li>
-    <li><code>VirtualizedTableAPI.getState()</code> - получить текущее состояние</li>
-  </ul>
-</div>
-
-<div class="controls">
-  <h3>Управление таблицей через новый API</h3>
-  <button class="control-button" onclick="toggleEditMode()">Переключить режим редактирования</button>
-  <button class="control-button" onclick="toggleFilters()">Переключить фильтры</button>
-  <button class="control-button" onclick="setBatchSize(5)">Батч: 5</button>
-  <button class="control-button" onclick="setBatchSize(10)">Батч: 10</button>
-  <button class="control-button" onclick="setBatchSize(20)">Батч: 20</button>
-  <button class="control-button" onclick="refreshTable()">Обновить данные</button>
-</div>
-
-<div class="status-panel" id="statusPanel">
-  Состояние таблицы: загрузка...
-</div>
 
 <virtualized-table
         max-width="100%"
@@ -105,8 +667,6 @@
 </virtualized-table>
 
 <script>
-  // Инициализация глобального состояния (будет создано автоматически компонентом)
-
   // 1. Провайдер заголовков с новой структурой
   window.hp = async function() {
     console.log('[ASYNC HP] Загрузка заголовков...');
@@ -225,10 +785,9 @@
             {
               "headerId": "station2",
               "value": "Р",
-              "color": "brown",
+              "color": "black",
               "draggable": true
             },
-            // station2 скрыта colspan от station1
             {
               "headerId": "station3",
               "value": "П",
@@ -252,7 +811,6 @@
         {
           "date": "11.09.2025",
           "columns": [
-            // station1 и station2 скрыты rowspan от предыдущей строки
             {
               "headerId": "station2",
               "value": "П",
@@ -489,151 +1047,32 @@
     return JSON.stringify(data);
   };
 
-    // 3. Управляющие функции для нового API
-    function toggleEditMode() {
-      // Ждем когда VirtualizedTableAPI будет доступен
+  // Загрузка компонента
+  const script = document.createElement('script');
+  script.src = '../dist/virtualized-table.js';
+
+  script.onload = function() {
+    // Ждем инициализацию API
+    const checkAPI = () => {
       if (typeof window.VirtualizedTableAPI !== 'undefined') {
-        const currentState = window.VirtualizedTableAPI.getState();
-        window.VirtualizedTableAPI.setEditMode(!currentState.editMode);
-        updateStatusPanel();
-      } else {
-        console.warn('VirtualizedTableAPI еще не готов');
-      }
-    }
+        // Устанавливаем обработчик клика
+        // window.VirtualizedTableAPI.setOnCellClick((cellData, event) => {
+        //   console.log('Клик по ячейке:', JSON.stringify(cellData));
+        // });
 
-    function toggleFilters() {
-      if (typeof window.VirtualizedTableAPI !== 'undefined') {
-        const currentState = window.VirtualizedTableAPI.getState();
-        window.VirtualizedTableAPI.setShowFilters(!currentState.showFilters);
-        updateStatusPanel();
-      }
-    }
-
-    function setBatchSize(size) {
-      if (typeof window.VirtualizedTableAPI !== 'undefined') {
-        window.VirtualizedTableAPI.setScrollBatchSize(size);
-        updateStatusPanel();
-      }
-    }
-
-    function refreshTable() {
-      if (typeof window.VirtualizedTableAPI !== 'undefined') {
-        window.VirtualizedTableAPI.refreshViewport();
-      }
-    }
-
-    // 4. Обновление панели состояния
-    function updateStatusPanel() {
-      const panel = document.getElementById('statusPanel');
-
-      if (typeof window.VirtualizedTableAPI !== 'undefined') {
-        const state = window.VirtualizedTableAPI.getState();
-
-        panel.innerHTML = `
-        <strong>Состояние VirtualizedTableState:</strong><br>
-        • Режим редактирования: <span style="color: ${state.editMode ? 'green' : 'red'}">${state.editMode ? 'ВКЛЮЧЕН' : 'выключен'}</span><br>
-        • Панель фильтров: <span style="color: ${state.showFilters ? 'green' : 'red'}">${state.showFilters ? 'ОТКРЫТА' : 'закрыта'}</span><br>
-        • Размер батча: ${state.scrollBatchSize}<br>
-        • Размер буфера: ${state.bufferSize}<br>
-        • Инициализирована: ${state.initialized ? 'Да' : 'Нет'}<br>
-        • Загрузка: ${state.loading ? 'Да' : 'Нет'}<br>
-        ${state.error ? `• Ошибка: ${state.error}<br>` : ''}
-      `;
-
-        // Обновляем стили кнопок
-        const buttons = document.querySelectorAll('.control-button');
-        buttons.forEach(btn => {
-          btn.classList.remove('active');
-          if (btn.textContent.includes('редактирования') && state.editMode) {
-            btn.classList.add('active');
-          }
-          if (btn.textContent.includes('фильтры') && state.showFilters) {
-            btn.classList.add('active');
-          }
+        // Устанавливаем обработчик двойного клика (JSON)
+        window.VirtualizedTableAPI.setOnCellDoubleClick((cellDataJsonString, event) => {
+          console.log('Двойной клик JSON:', JSON.stringify(cellDataJsonString));
         });
       } else {
-        panel.innerHTML = `
-        <strong>Статус:</strong> Ожидание инициализации VirtualizedTableAPI...<br>
-        <small>Компонент еще загружается</small>
-      `;
-      }
-    }
-
-    // 5. Обработчик кликов по ячейкам
-    window.onTableCellClick = function(cellDataJson) {
-      console.log('[HTML] Получен клик по ячейке:', cellDataJson);
-
-      try {
-        const cellData = JSON.parse(cellDataJson);
-        alert(`Ячейка кликнута!\nДата: ${cellData.date}\nУзел: ${cellData.nodeId}\nЗначение: ${cellData.value || 'не указано'}`);
-      } catch (error) {
-        console.error('[HTML] Ошибка парсинга данных ячейки:', error);
+        setTimeout(checkAPI, 100);
       }
     };
+    checkAPI();
+  };
 
-    // 6. Слушатель изменений глобального состояния
-    window.addEventListener('virtualized-table-state-change', function(event) {
-      console.log('[HTML] Состояние таблицы изменилось:', event.detail);
-      updateStatusPanel();
-    });
-
-    // 7. Загрузка компонента
-    const script = document.createElement('script');
-    script.src = '../dist/virtualized-table.js';
-
-    script.onload = function() {
-      console.log('[HTML] ✅ Компонент загружен успешно');
-
-      // Ждем инициализацию API
-      const checkAPI = () => {
-        if (typeof window.VirtualizedTableAPI !== 'undefined') {
-          console.log('[HTML] ✅ VirtualizedTableAPI готов');
-          updateStatusPanel();
-
-          // Настраиваем обработчик кликов через новый API
-          if (window.VirtualizedTableState) {
-            window.VirtualizedTableState.onCellClick = function(cellData, event) {
-              console.log('[HTML] Клик через новый API:', cellData);
-              alert(`Новый API!\nДата: ${cellData.date}\nУзел: ${cellData.nodeId}\nЗначение: ${cellData.value || '-'}`);
-            };
-          }
-        } else {
-          setTimeout(checkAPI, 100);
-        }
-      };
-
-      checkAPI();
-    };
-
-    script.onerror = function() {
-      console.error('[HTML] ❌ Ошибка загрузки компонента');
-      document.querySelector('virtualized-table').innerHTML = `
-        <div style="padding: 20px; text-align: center; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px;">
-          <h3>Ошибка загрузки компонента</h3>
-          <p>Не удалось загрузить файл virtualized-table.js</p>
-          <p><small>Проверьте путь к файлу и убедитесь, что он собран с поддержкой нового API</small></p>
-        </div>
-      `;
-    };
-
-    document.head.appendChild(script);
-
-    // 8. Периодическое обновление статуса
-    setInterval(updateStatusPanel, 2000);
-
+  document.head.appendChild(script);
 </script>
-
-<div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 4px;">
-  <h3>Ключевые особенности новой версии:</h3>
-  <ul>
-    <li><strong>Глобальное состояние:</strong> <code>VirtualizedTableState</code> содержит все настройки</li>
-    <li><strong>Единый API:</strong> <code>VirtualizedTableAPI</code> для управления таблицей</li>
-    <li><strong>Поддержка colspan:</strong> ячейки могут объединяться по горизонтали</li>
-    <li><strong>Поддержка rowspan:</strong> ячейки могут объединяться по вертикали</li>
-    <li><strong>Умная виртуализация:</strong> учитывает объединенные ячейки</li>
-    <li><strong>Vaadin-совместимость:</strong> подходит для интеграции в Java Vaadin</li>
-  </ul>
-</div>
 
 </body>
 </html>
