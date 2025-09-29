@@ -7,28 +7,21 @@ import { smartThrottle } from '../utils/performanceUtils.js';
  */
 const processTableData = (dataArray, leafNodes) => {
     const processedData = {};
-
-    // Создаем карту активных rowspan для отслеживания
     const activeRowspans = new Map();
-    // Создаем карту активных colspan для отслеживания
     const activeColspans = new Map();
 
     dataArray.forEach((dayData, dayIndex) => {
         const elements = {};
         const leafNodeIds = leafNodes.map(node => node.id);
-
-        // Создаем карту позиций листовых узлов для обработки colspan
         const nodePositions = new Map();
         leafNodeIds.forEach((nodeId, index) => {
             nodePositions.set(nodeId, index);
         });
 
-        // Проходим по всем возможным листовым узлам
         leafNodeIds.forEach((leafNodeId, nodeIndex) => {
             const columnData = dayData.columns?.find(col => col.headerId === leafNodeId);
 
             if (columnData) {
-                // Есть данные для этой колонки
                 const value = columnData.value || '-';
                 const color = columnData.color || null;
                 const draggable = columnData.draggable === true;
@@ -44,7 +37,6 @@ const processTableData = (dataArray, leafNodes) => {
                     colspan: colspan
                 };
 
-                // Регистрируем активный rowspan если больше 1
                 if (rowspan > 1) {
                     const rowspanKey = `${leafNodeId}_${dayIndex}_rowspan`;
                     activeRowspans.set(rowspanKey, {
@@ -59,18 +51,16 @@ const processTableData = (dataArray, leafNodes) => {
                     });
                 }
 
-                // Обрабатываем colspan - скрываем следующие ячейки в этой строке
                 if (colspan > 1) {
                     for (let i = 1; i < colspan; i++) {
                         const nextNodeIndex = nodeIndex + i;
                         if (nextNodeIndex < leafNodeIds.length) {
                             const nextNodeId = leafNodeIds[nextNodeIndex];
-
                             elements[nextNodeId] = {
                                 status: value,
                                 color: color,
                                 draggable: draggable,
-                                displayed: false, // НЕ отображаем эту ячейку
+                                displayed: false,
                                 rowspan: 1,
                                 colspan: 1,
                                 parentColspan: {
@@ -82,9 +72,7 @@ const processTableData = (dataArray, leafNodes) => {
                         }
                     }
                 }
-
             } else {
-                // Проверяем, не находится ли эта ячейка под rowspan от предыдущих дат
                 let isUnderRowspan = false;
 
                 for (const [key, rowspanInfo] of activeRowspans.entries()) {
@@ -92,24 +80,21 @@ const processTableData = (dataArray, leafNodes) => {
                         dayIndex > rowspanInfo.startIndex &&
                         dayIndex <= rowspanInfo.endIndex) {
 
-                        // Эта ячейка скрыта под rowspan
                         elements[leafNodeId] = {
                             status: rowspanInfo.value,
                             color: rowspanInfo.color,
                             draggable: rowspanInfo.draggable,
-                            displayed: false, // НЕ отображаем эту ячейку
+                            displayed: false,
                             rowspan: 1,
                             colspan: 1,
                             parentRowspan: rowspanInfo
                         };
 
-                        // Если у родительского rowspan есть colspan, то скрываем и соседние ячейки
                         if (rowspanInfo.colspan > 1) {
                             for (let i = 1; i < rowspanInfo.colspan; i++) {
                                 const nextNodeIndex = rowspanInfo.nodeIndex + i;
                                 if (nextNodeIndex < leafNodeIds.length) {
                                     const nextNodeId = leafNodeIds[nextNodeIndex];
-
                                     elements[nextNodeId] = {
                                         status: rowspanInfo.value,
                                         color: rowspanInfo.color,
@@ -134,10 +119,8 @@ const processTableData = (dataArray, leafNodes) => {
                 }
 
                 if (!isUnderRowspan) {
-                    // Проверяем, не скрыта ли ячейка под colspan от другой ячейки в этой же строке
                     let isUnderColspan = false;
 
-                    // Проверяем предыдущие ячейки в этой строке на наличие colspan
                     for (let prevIndex = 0; prevIndex < nodeIndex; prevIndex++) {
                         const prevNodeId = leafNodeIds[prevIndex];
                         const prevColumnData = dayData.columns?.find(col => col.headerId === prevNodeId);
@@ -145,7 +128,6 @@ const processTableData = (dataArray, leafNodes) => {
                         if (prevColumnData && prevColumnData.colspan > 1) {
                             const colspanEnd = prevIndex + prevColumnData.colspan - 1;
                             if (nodeIndex <= colspanEnd) {
-                                // Эта ячейка скрыта под colspan
                                 elements[leafNodeId] = {
                                     status: prevColumnData.value || '-',
                                     color: prevColumnData.color || null,
@@ -166,7 +148,6 @@ const processTableData = (dataArray, leafNodes) => {
                     }
 
                     if (!isUnderColspan) {
-                        // Нет данных и не под rowspan/colspan - показываем пустую ячейку
                         elements[leafNodeId] = {
                             status: '-',
                             color: null,
@@ -189,15 +170,11 @@ const processTableData = (dataArray, leafNodes) => {
     return { processedData, activeRowspans, activeColspans };
 };
 
-/**
- * Вычисление расширенного диапазона с учетом rowspan и colspan
- */
 const calculateExtendedRange = (visibleRange, dates, visibleData) => {
     let { start, end } = visibleRange;
     let extendedStart = start;
     let extendedEnd = end;
 
-    // Ищем активные rowspan которые могут влиять на видимый диапазон
     const searchStart = Math.max(0, start - 50);
     const searchEnd = Math.min(dates.length, end + 50);
 
@@ -209,8 +186,6 @@ const calculateExtendedRange = (visibleRange, dates, visibleData) => {
         Object.values(rowData.elements).forEach(element => {
             if (element.rowspan > 1 && element.displayed) {
                 const rowspanEnd = i + element.rowspan - 1;
-
-                // Если rowspan пересекается с видимым диапазоном
                 if (i <= end && rowspanEnd >= start) {
                     extendedStart = Math.min(extendedStart, i);
                     extendedEnd = Math.max(extendedEnd, rowspanEnd + 1);
@@ -219,43 +194,39 @@ const calculateExtendedRange = (visibleRange, dates, visibleData) => {
         });
     }
 
-    if (extendedStart !== start || extendedEnd !== end) {
-        console.log(`[ExtendedRange] Диапазон расширен из-за rowspan: ${start}-${end} → ${extendedStart}-${extendedEnd}`);
-    }
-
     return {
         start: Math.max(0, extendedStart),
         end: Math.min(dates.length, extendedEnd)
     };
 };
 
-/**
- * Проверка можно ли исключить дату из рендера (учитывая rowspan и colspan)
- */
 const canExcludeDate = (dateIndex, dates, visibleData, bufferRange) => {
     const dateString = dates[dateIndex];
     const rowData = visibleData[dateString];
-
     if (!rowData) return true;
 
-    // Проверяем, есть ли в этой дате rowspan который выходит за пределы буфера
     for (const element of Object.values(rowData.elements)) {
         if (element.rowspan > 1 && element.displayed) {
             const rowspanEnd = dateIndex + element.rowspan - 1;
-
-            // Если rowspan выходит в видимую область, не можем исключить
             if (rowspanEnd >= bufferRange.start) {
                 return false;
             }
         }
     }
-
     return true;
 };
 
-/**
- * Хук для управления логикой виртуализированной таблицы с поддержкой rowspan и colspan
- */
+// ГЛОБАЛЬНЫЙ флаг инициализации (вне компонента)
+let globalInitialized = false;
+
+// Функция для сброса глобального флага (для отладки)
+if (typeof window !== 'undefined') {
+    window.resetTableInitialization = () => {
+        globalInitialized = false;
+        console.log('[Debug] Глобальный флаг инициализации сброшен');
+    };
+}
+
 export const useTableLogic = ({
                                   scrollBatchSize,
                                   dataProvider = null,
@@ -263,19 +234,15 @@ export const useTableLogic = ({
                                   onError = null,
                                   treeStructure
                               }) => {
-    // Основные состояния
     const [dates, setDates] = useState([]);
     const [visibleData, setVisibleData] = useState({});
     const [loadingDates, setLoadingDates] = useState(new Set());
     const [isInitialized, setIsInitialized] = useState(false);
     const [activeRowspans, setActiveRowspans] = useState(new Map());
     const [activeColspans, setActiveColspans] = useState(new Map());
-
-    // Состояния viewport
     const [scrollTop, setScrollTop] = useState(0);
     const [containerHeight, setContainerHeight] = useState(0);
 
-    // Refs
     const containerRef = useRef(null);
     const fetchingPromises = useRef({});
     const scrollVelocity = useRef(0);
@@ -283,23 +250,19 @@ export const useTableLogic = ({
     const lastScrollTop = useRef(0);
     const isScrollCompensating = useRef(false);
 
-    // Получаем настройки из глобального состояния
     const batchSize = useMemo(() => {
-        return typeof window !== 'undefined' && window.VirtualizedTableState
-            ? window.VirtualizedTableState.scrollBatchSize
-            : scrollBatchSize;
+        // Используем только проп, преобразуем в число
+        const numSize = Number(scrollBatchSize);
+        const finalSize = !isNaN(numSize) && numSize > 0 ? numSize : 7;
+
+        console.log('[useTableLogic] batchSize из пропса:', finalSize);
+        return finalSize;
     }, [scrollBatchSize]);
 
-    const bufferSize = useMemo(() => {
-        return typeof window !== 'undefined' && window.VirtualizedTableState
-            ? window.VirtualizedTableState.bufferSize
-            : 4;
-    }, []);
+    const bufferSize = 4;
 
-    // Константы
     const rowHeight = 40;
 
-    // Сегодняшняя дата
     const today = useMemo(() => {
         const date = new Date();
         date.setUTCHours(0, 0, 0, 0);
@@ -307,13 +270,14 @@ export const useTableLogic = ({
     }, []);
 
     const baseVisibleRange = useMemo(() => {
-        if (!containerHeight || dates.length === 0) {
-            return { start: 0, end: Math.max(dates.length, batchSize * 2) };
+        if (!containerHeight || containerHeight === 0 || dates.length === 0) {
+            const range = { start: 0, end: Math.min(dates.length, batchSize * 4) };
+            return range;
         }
 
-        const visibleStart = Math.floor(scrollTop / rowHeight);
-        const visibleEnd = Math.ceil((scrollTop + containerHeight) / rowHeight);
-
+        const safeScroll = Number.isFinite(scrollTop) && !isNaN(scrollTop) ? scrollTop : 0;
+        const visibleStart = Math.floor(safeScroll / rowHeight);
+        const visibleEnd = Math.ceil((safeScroll + containerHeight) / rowHeight);
         const start = Math.max(0, visibleStart - bufferSize);
         const end = Math.min(dates.length, visibleEnd + bufferSize);
 
@@ -337,8 +301,150 @@ export const useTableLogic = ({
         return initialDates;
     }, [today, batchSize]);
 
+    // const loadBatch = useCallback(async (startDate, direction, batchSize) => {
+    //     const batchKey = `${startDate}:${direction}:${batchSize}`;
+    //
+    //     if (fetchingPromises.current[batchKey]) {
+    //         return fetchingPromises.current[batchKey];
+    //     }
+    //
+    //     const promise = (async () => {
+    //         try {
+    //             const currentDataProvider = typeof window !== 'undefined' && window.VirtualizedTableState?.dataProvider
+    //                 ? window.VirtualizedTableState.dataProvider
+    //                 : dataProvider;
+    //
+    //             if (!currentDataProvider) {
+    //                 throw new Error('dataProvider не установлен');
+    //             }
+    //
+    //             let jsonString;
+    //             if (currentDataProvider.constructor.name === 'AsyncFunction') {
+    //                 jsonString = await currentDataProvider(startDate, direction, batchSize);
+    //             } else {
+    //                 jsonString = currentDataProvider(startDate, direction, batchSize);
+    //             }
+    //
+    //             if (typeof jsonString !== 'string') {
+    //                 throw new Error('Провайдер данных должен возвращать JSON-строку');
+    //             }
+    //
+    //             let batchData;
+    //             try {
+    //                 batchData = JSON.parse(jsonString);
+    //             } catch (parseError) {
+    //                 throw new Error(`Ошибка парсинга JSON: ${parseError.message}`);
+    //             }
+    //
+    //             let dataArray;
+    //             if (batchData && batchData["data"] && Array.isArray(batchData["data"])) {
+    //                 dataArray = batchData["data"];
+    //             } else if (batchData && batchData.data && Array.isArray(batchData.data)) {
+    //                 dataArray = batchData.data;
+    //             } else {
+    //                 throw new Error('Провайдер данных вернул некорректный формат');
+    //             }
+    //
+    //             if (dataArray.length > 0 && treeStructure.leafNodes) {
+    //                 const processed = processTableData(dataArray, treeStructure.leafNodes);
+    //
+    //                 setVisibleData(prev => {
+    //                     const updated = { ...prev };
+    //                     Object.keys(processed.processedData).forEach(date => {
+    //                         updated[date] = processed.processedData[date];
+    //                     });
+    //                     return updated;
+    //                 });
+    //
+    //                 setActiveRowspans(prev => {
+    //                     const updated = new Map(prev);
+    //                     processed.activeRowspans.forEach((value, key) => {
+    //                         updated.set(key, value);
+    //                     });
+    //                     return updated;
+    //                 });
+    //
+    //                 setActiveColspans(prev => {
+    //                     const updated = new Map(prev);
+    //                     processed.activeColspans?.forEach((value, key) => {
+    //                         updated.set(key, value);
+    //                     });
+    //                     return updated;
+    //                 });
+    //             }
+    //
+    //             setLoadingDates(prev => {
+    //                 const updated = new Set(prev);
+    //                 dataArray.forEach(dayData => updated.delete(dayData.date));
+    //                 return updated;
+    //             });
+    //
+    //             const currentOnDataLoad = typeof window !== 'undefined' && window.VirtualizedTableState?.onDataLoad
+    //                 ? window.VirtualizedTableState.onDataLoad
+    //                 : onDataLoad;
+    //
+    //             if (currentOnDataLoad) {
+    //                 currentOnDataLoad(dataArray, startDate, batchSize);
+    //             }
+    //
+    //             return { data: dataArray };
+    //
+    //         } catch (error) {
+    //             console.error('[loadBatch] Ошибка загрузки данных:', error);
+    //
+    //             setLoadingDates(prev => {
+    //                 const updated = new Set(prev);
+    //                 const startDateObj = parseDateString(startDate);
+    //                 for (let i = 0; i < batchSize; i++) {
+    //                     const date = new Date(startDateObj);
+    //                     if (direction === 'up') {
+    //                         date.setUTCDate(startDateObj.getUTCDate() - i);
+    //                     } else {
+    //                         date.setUTCDate(startDateObj.getUTCDate() + i);
+    //                     }
+    //                     updated.delete(formatDate(date));
+    //                 }
+    //                 return updated;
+    //             });
+    //
+    //             const currentOnError = typeof window !== 'undefined' && window.VirtualizedTableState?.onError
+    //                 ? window.VirtualizedTableState.onError
+    //                 : onError;
+    //
+    //             if (currentOnError) {
+    //                 currentOnError(error, { startDate, direction, batchSize });
+    //             }
+    //             throw error;
+    //         }
+    //     })();
+    //
+    //     promise.finally(() => {
+    //         delete fetchingPromises.current[batchKey];
+    //     });
+    //
+    //     fetchingPromises.current[batchKey] = promise;
+    //     return promise;
+    // }, [dataProvider, onDataLoad, onError, treeStructure.leafNodes]);
+
     const loadBatch = useCallback(async (startDate, direction, batchSize) => {
-        const batchKey = `${startDate}:${direction}:${batchSize}`;
+        // Корректируем startDate для перекрытия на 1 дату
+        let adjustedStartDate = startDate;
+
+        if (direction === 'down') {
+            // Для загрузки вниз: сдвигаем на 1 назад
+            const dateObj = parseDateString(startDate);
+            dateObj.setUTCDate(dateObj.getUTCDate() - 1);
+            adjustedStartDate = formatDate(dateObj);
+        } else if (direction === 'up') {
+            // Для загрузки вверх: сдвигаем на 1 вперед
+            const dateObj = parseDateString(startDate);
+            dateObj.setUTCDate(dateObj.getUTCDate() + 1);
+            adjustedStartDate = formatDate(dateObj);
+        }
+
+        console.log(`[loadBatch] Скорректирован startDate: ${startDate} → ${adjustedStartDate}, направление: ${direction}`);
+
+        const batchKey = `${adjustedStartDate}:${direction}:${batchSize}`;
 
         if (fetchingPromises.current[batchKey]) {
             return fetchingPromises.current[batchKey];
@@ -346,9 +452,6 @@ export const useTableLogic = ({
 
         const promise = (async () => {
             try {
-                console.log(`[useTableLogic] Загружаем батч: ${startDate}, направление: ${direction}, размер: ${batchSize}`);
-
-                // Используем провайдер из глобального состояния или переданный параметр
                 const currentDataProvider = typeof window !== 'undefined' && window.VirtualizedTableState?.dataProvider
                     ? window.VirtualizedTableState.dataProvider
                     : dataProvider;
@@ -359,9 +462,9 @@ export const useTableLogic = ({
 
                 let jsonString;
                 if (currentDataProvider.constructor.name === 'AsyncFunction') {
-                    jsonString = await currentDataProvider(startDate, direction, batchSize);
+                    jsonString = await currentDataProvider(adjustedStartDate, direction, batchSize);
                 } else {
-                    jsonString = currentDataProvider(startDate, direction, batchSize);
+                    jsonString = currentDataProvider(adjustedStartDate, direction, batchSize);
                 }
 
                 if (typeof jsonString !== 'string') {
@@ -381,18 +484,9 @@ export const useTableLogic = ({
                 } else if (batchData && batchData.data && Array.isArray(batchData.data)) {
                     dataArray = batchData.data;
                 } else {
-                    throw new Error('Провайдер данных вернул некорректный формат - ожидается {data: [...]} или {"data": [...]}');
+                    throw new Error('Провайдер данных вернул некорректный формат');
                 }
 
-                // Проверяем формат данных
-                if (dataArray.length > 0) {
-                    const firstRecord = dataArray[0];
-                    if (!firstRecord.date || !firstRecord.columns || !Array.isArray(firstRecord.columns)) {
-                        throw new Error('Некорректный формат данных: ожидается {date: string, columns: [{headerId: string, value: string, rowspan?: number, colspan?: number}]}');
-                    }
-                }
-
-                // Обрабатываем данные с поддержкой rowspan и colspan
                 if (dataArray.length > 0 && treeStructure.leafNodes) {
                     const processed = processTableData(dataArray, treeStructure.leafNodes);
 
@@ -404,7 +498,6 @@ export const useTableLogic = ({
                         return updated;
                     });
 
-                    // Обновляем активные rowspan и colspan
                     setActiveRowspans(prev => {
                         const updated = new Map(prev);
                         processed.activeRowspans.forEach((value, key) => {
@@ -422,30 +515,28 @@ export const useTableLogic = ({
                     });
                 }
 
-                // Убираем даты из загружающихся
                 setLoadingDates(prev => {
                     const updated = new Set(prev);
                     dataArray.forEach(dayData => updated.delete(dayData.date));
                     return updated;
                 });
 
-                // Вызываем callback из глобального состояния или переданный параметр
                 const currentOnDataLoad = typeof window !== 'undefined' && window.VirtualizedTableState?.onDataLoad
                     ? window.VirtualizedTableState.onDataLoad
                     : onDataLoad;
 
                 if (currentOnDataLoad) {
-                    currentOnDataLoad(dataArray, startDate, batchSize);
+                    currentOnDataLoad(dataArray, adjustedStartDate, batchSize);
                 }
 
                 return { data: dataArray };
 
             } catch (error) {
-                console.error('[useTableLogic] Ошибка загрузки данных:', error);
+                console.error('[loadBatch] Ошибка загрузки данных:', error);
 
                 setLoadingDates(prev => {
                     const updated = new Set(prev);
-                    const startDateObj = parseDateString(startDate);
+                    const startDateObj = parseDateString(adjustedStartDate);
                     for (let i = 0; i < batchSize; i++) {
                         const date = new Date(startDateObj);
                         if (direction === 'up') {
@@ -458,13 +549,12 @@ export const useTableLogic = ({
                     return updated;
                 });
 
-                // Вызываем callback ошибки из глобального состояния или переданный параметр
                 const currentOnError = typeof window !== 'undefined' && window.VirtualizedTableState?.onError
                     ? window.VirtualizedTableState.onError
                     : onError;
 
                 if (currentOnError) {
-                    currentOnError(error, { startDate, direction, batchSize });
+                    currentOnError(error, { startDate: adjustedStartDate, direction, batchSize });
                 }
                 throw error;
             }
@@ -476,9 +566,8 @@ export const useTableLogic = ({
 
         fetchingPromises.current[batchKey] = promise;
         return promise;
-    }, [dataProvider, onDataLoad, onError, treeStructure.leafNodes, batchSize]);
+    }, [dataProvider, onDataLoad, onError, treeStructure.leafNodes]);
 
-    // Очистка невидимых данных с учетом rowspan и colspan
     const cleanupInvisibleData = useCallback(() => {
         const extendedRange = calculateExtendedRange(baseVisibleRange, dates, visibleData);
         const keepStart = Math.max(0, extendedRange.start - bufferSize);
@@ -490,16 +579,13 @@ export const useTableLogic = ({
 
             dates.forEach((date, index) => {
                 if (index >= keepStart && index < keepEnd) {
-                    // Оставляем в пределах расширенного диапазона
                     if (prev[date]) {
                         cleaned[date] = prev[date];
                     }
                 } else if (prev[date]) {
-                    // Проверяем, можно ли удалить эту дату (учитываем rowspan)
                     if (canExcludeDate(index, dates, prev, { start: keepStart, end: keepEnd })) {
                         removedCount++;
                     } else {
-                        // Не можем удалить из-за активного rowspan
                         cleaned[date] = prev[date];
                     }
                 }
@@ -512,7 +598,6 @@ export const useTableLogic = ({
             return cleaned;
         });
 
-        // Очистка устаревших rowspan и colspan
         setActiveRowspans(prev => {
             const cleaned = new Map();
             prev.forEach((value, key) => {
@@ -534,7 +619,6 @@ export const useTableLogic = ({
         });
     }, [baseVisibleRange, dates, visibleData, bufferSize]);
 
-    // Загрузка видимых данных
     const loadVisibleData = useCallback(async () => {
         const { start, end } = visibleRange;
         const visibleDates = dates.slice(start, end);
@@ -544,12 +628,8 @@ export const useTableLogic = ({
 
         if (missingDates.length === 0) return;
 
-        console.log(`[loadVisibleData] Нужно загрузить ${missingDates.length} дат:`, missingDates);
-
-        // Отмечаем даты как загружающиеся
         setLoadingDates(prev => new Set([...prev, ...missingDates]));
 
-        // Группируем недостающие даты в непрерывные блоки
         const dateGroups = [];
         let currentGroup = [missingDates[0]];
 
@@ -567,19 +647,15 @@ export const useTableLogic = ({
         }
         dateGroups.push(currentGroup);
 
-        // Загружаем каждую группу
         const loadPromises = dateGroups.map(group => {
             const startDate = group[0];
             const groupSize = Math.min(group.length, batchSize);
-
-            console.log(`[loadVisibleData] Загружаем группу от ${startDate}, размер: ${groupSize}`);
             return loadBatch(startDate, 'down', groupSize);
         });
 
         await Promise.allSettled(loadPromises);
     }, [visibleRange, dates, visibleData, loadingDates, loadBatch, batchSize]);
 
-    // Расширение дат
     const extendDates = useCallback(async (direction, isPreemptive = false) => {
         const loadPromises = [];
 
@@ -645,13 +721,17 @@ export const useTableLogic = ({
         await Promise.allSettled(loadPromises);
     }, [dates, batchSize, rowHeight]);
 
-    // Обработка скролла
     const handleScrollImmediate = useCallback(async () => {
         if (!containerRef.current || isScrollCompensating.current) return;
 
         const container = containerRef.current;
         const newScrollTop = container.scrollTop;
         const newContainerHeight = container.clientHeight;
+
+        if (!Number.isFinite(newScrollTop) || !Number.isFinite(newContainerHeight)) {
+            return;
+        }
+
         const scrollHeight = container.scrollHeight;
         const currentTime = Date.now();
 
@@ -665,7 +745,13 @@ export const useTableLogic = ({
         lastScrollTime.current = currentTime;
         lastScrollTop.current = newScrollTop;
 
-        setScrollTop(newScrollTop);
+        setScrollTop(prev => {
+            if (!Number.isFinite(newScrollTop) || isNaN(newScrollTop)) {
+                return prev || 0;
+            }
+            return newScrollTop;
+        });
+
         setContainerHeight(newContainerHeight);
 
         const baseThreshold = rowHeight * bufferSize;
@@ -683,12 +769,10 @@ export const useTableLogic = ({
         const promises = [];
 
         if (needsTopExtension) {
-            console.log('[Scroll] Расширяем даты вверх');
             promises.push(extendDates('up', isHighVelocity));
         }
 
         if (needsBottomExtension) {
-            console.log('[Scroll] Расширяем даты вниз');
             promises.push(extendDates('down', isHighVelocity));
         }
 
@@ -708,7 +792,6 @@ export const useTableLogic = ({
 
     const handleScroll = useCallback(() => {
         if (isScrollCompensating.current) return;
-
         handleScrollThrottled();
 
         if (scrollVelocity.current > 2) {
@@ -718,9 +801,30 @@ export const useTableLogic = ({
         }
     }, [handleScrollThrottled]);
 
-    // Инициализация таблицы
+    // ИНИЦИАЛИЗАЦИЯ с глобальным флагом
     useEffect(() => {
-        if (!isInitialized && dates.length === 0 && treeStructure.leafNodes.length > 0) {
+        // Проверяем ГЛОБАЛЬНЫЙ флаг
+        if (globalInitialized) {
+            console.log('[Init] УЖЕ инициализирован глобально, пропускаем');
+
+            // Если компонент перемонтировался но данные есть, просто устанавливаем флаг
+            if (Object.keys(visibleData).length > 0 && !isInitialized) {
+                console.log('[Init] Восстанавливаем isInitialized после ре-рендера');
+                setIsInitialized(true);
+            }
+            return;
+        }
+
+        if (dates.length === 0) {
+            if (treeStructure.leafNodes.length === 0) {
+                console.log('[Init] Ожидание загрузки заголовков...');
+                return;
+            }
+
+            // Устанавливаем ГЛОБАЛЬНЫЙ флаг
+            globalInitialized = true;
+            console.log('[Init] Начинаем ЕДИНСТВЕННУЮ инициализацию (globalInitialized = true)');
+
             const initialDates = generateInitialDates();
             setDates(initialDates);
 
@@ -731,7 +835,6 @@ export const useTableLogic = ({
                 console.log(`[Init] Сегодняшняя дата: ${todayFormatted}, индекс: ${todayIndex}`);
 
                 if (todayIndex !== -1) {
-                    // Ждем когда контейнер получит размеры
                     await new Promise(resolve => {
                         const checkDimensions = () => {
                             if (containerRef.current?.clientHeight > 0) {
@@ -747,34 +850,39 @@ export const useTableLogic = ({
                     const visibleRows = Math.ceil(containerHeight / rowHeight);
                     const initialBatchSize = Math.max(batchSize * 2, visibleRows + bufferSize * 2);
 
-                    // Загружаем начальные данные
-                    console.log(`[Init] Загружаем начальные данные: ${initialBatchSize} записей от ${todayFormatted}`);
+                    console.log(`[Init] Загружаем начальные данные: ${initialBatchSize} записей`);
 
                     try {
                         await loadBatch(todayFormatted, 'down', initialBatchSize);
 
-                        // После загрузки данных устанавливаем скролл на сегодняшнюю дату
                         setTimeout(() => {
                             if (containerRef.current) {
                                 const targetScroll = todayIndex * rowHeight;
-                                console.log(`[Init] Устанавливаем скролл на позицию: ${targetScroll}`);
+
+                                if (!Number.isFinite(targetScroll)) {
+                                    console.error('[Init] targetScroll некорректен:', targetScroll);
+                                    return;
+                                }
 
                                 containerRef.current.scrollTop = targetScroll;
                                 setContainerHeight(containerHeight);
                                 setScrollTop(targetScroll);
-                                setIsInitialized(true);
 
-                                // Обновляем глобальное состояние
-                                if (typeof window !== 'undefined' && window.VirtualizedTableState) {
-                                    window.VirtualizedTableState._initialized = true;
-                                }
+                                setTimeout(() => {
+                                    setIsInitialized(true);
 
-                                console.log('[Init] Инициализация завершена');
+                                    if (typeof window !== 'undefined' && window.VirtualizedTableState) {
+                                        window.VirtualizedTableState._initialized = true;
+                                    }
+
+                                    console.log('[Init] Инициализация завершена успешно');
+                                }, 200);
                             }
-                        }, 200);
+                        }, 300);
                     } catch (error) {
-                        console.error('[Init] Ошибка при загрузке начальных данных:', error);
-                        setIsInitialized(true); // Инициализируем даже при ошибке
+                        console.error('[Init] Ошибка при загрузке:', error);
+                        globalInitialized = false; // Сбрасываем при ошибке
+                        setIsInitialized(true);
 
                         if (typeof window !== 'undefined' && window.VirtualizedTableState) {
                             window.VirtualizedTableState._error = error.message;
@@ -785,29 +893,37 @@ export const useTableLogic = ({
 
             initializeTable();
         }
-    }, [isInitialized, dates.length, generateInitialDates, today, rowHeight, batchSize, loadBatch, bufferSize, treeStructure.leafNodes.length]);
+    }, [
+        dates.length,
+        treeStructure.leafNodes.length,
+        generateInitialDates,
+        today,
+        rowHeight,
+        batchSize,
+        loadBatch,
+        bufferSize,
+        // visibleData,
+        // isInitialized
+    ]);
 
-    // Загружаем видимые данные только после инициализации
     useEffect(() => {
         if (isInitialized && dates.length > 0) {
             const timeoutId = setTimeout(() => {
                 loadVisibleData();
-            }, 50);
+            }, 100);
 
             return () => clearTimeout(timeoutId);
         }
     }, [isInitialized, visibleRange, dates.length, loadVisibleData]);
 
-    // Создаем processedCache на лету из visibleData для совместимости
     const processedCache = useMemo(() => visibleData, [visibleData]);
 
     const refreshViewport = useCallback(async () => {
         const { start, end } = visibleRange;
         const currentVisibleDates = dates.slice(start, end);
 
-        console.log(`[RefreshViewport] Принудительное обновление viewport: ${currentVisibleDates.length} дат`);
+        console.log(`[RefreshViewport] Обновление: ${currentVisibleDates.length} дат`);
 
-        // Очищаем текущие данные viewport
         setVisibleData(prev => {
             const cleaned = { ...prev };
             currentVisibleDates.forEach(date => {
@@ -816,16 +932,13 @@ export const useTableLogic = ({
             return cleaned;
         });
 
-        // Очищаем состояние загрузки
         setLoadingDates(prev => {
             const updated = new Set(prev);
             currentVisibleDates.forEach(date => updated.delete(date));
             return updated;
         });
 
-        // Принудительно перезапрашиваем данные
         if (currentVisibleDates.length > 0) {
-            const firstDate = currentVisibleDates[0];
             const batchCount = Math.ceil(currentVisibleDates.length / batchSize);
 
             const refreshPromises = [];
@@ -837,16 +950,29 @@ export const useTableLogic = ({
             }
 
             await Promise.allSettled(refreshPromises);
-            console.log(`[RefreshViewport] Viewport обновлен: ${refreshPromises.length} батчей перезагружено`);
         }
     }, [visibleRange, dates, loadBatch, batchSize]);
 
-    // Синхронизация с глобальным состоянием
     useEffect(() => {
         if (typeof window !== 'undefined' && window.VirtualizedTableState) {
             window.VirtualizedTableState._loading = loadingDates.size > 0;
         }
     }, [loadingDates.size]);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            window.tableLogicDebug = {
+                dates: dates.length,
+                cacheSize: Object.keys(visibleData).length,
+                visibleRange,
+                isInitialized,
+                batchSize,
+                globalInitialized: globalInitialized,
+                getCacheKeys: () => Object.keys(visibleData),
+                getCache: () => visibleData
+            };
+        }
+    }, [dates.length, visibleData, visibleRange, isInitialized, batchSize]);
 
     return {
         dates,
