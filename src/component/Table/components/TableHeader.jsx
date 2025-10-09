@@ -141,7 +141,6 @@ export const TableHeader = React.memo(({
                             textAlign: 'center',
                             color: getContrastTextColor(backgroundColor),
                             opacity: isVisible ? 1 : 0.5,
-                            border: '1px solid #ddd'
                         }}
                     >
                         {node.name}

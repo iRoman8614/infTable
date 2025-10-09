@@ -128,145 +128,319 @@
     };
   };
 
-  // 2. Провайдер данных с диагностикой
-  window.dp = async function(startDate, direction, batchSize) {
-    console.log('=== [DP] ВЫЗОВ ПРОВАЙДЕРА ДАННЫХ ===');
-    console.log(`[DP] startDate: ${startDate}`);
-    console.log(`[DP] direction: ${direction}`);
-    console.log(`[DP] batchSize: ${batchSize}`);
+  // // 2. Провайдер данных с диагностикой
+  // window.dp = async function(startDate, direction, batchSize) {
+  //   console.log('=== [DP] ВЫЗОВ ПРОВАЙДЕРА ДАННЫХ ===');
+  //   console.log(`[DP] startDate: ${startDate}`);
+  //   console.log(`[DP] direction: ${direction}`);
+  //   console.log(`[DP] batchSize: ${batchSize}`);
+  //
+  //   const data = {
+  //     "data": [
+  //       {
+  //         "date": "27.09.2025",
+  //         "columns": [
+  //           {
+  //             "headerId": "station1",
+  //             "value": "М",
+  //             "rowspan": 7,
+  //             "color": "#ffeb3b",
+  //             "draggable": true
+  //           },
+  //           {
+  //             "headerId": "station2",
+  //             "value": "Р",
+  //             "color": "black",
+  //             "draggable": true
+  //           },
+  //           {
+  //             "headerId": "station3",
+  //             "value": "П",
+  //             "color": "#e91e63",
+  //             "draggable": true
+  //           },
+  //           {
+  //             "headerId": "station4",
+  //             "value": "Р",
+  //             "color": "#9c27b0",
+  //             "draggable": true
+  //           },
+  //           {
+  //             "headerId": "station5",
+  //             "value": "П",
+  //             "color": "#795548",
+  //             "draggable": true
+  //           }
+  //         ]
+  //       },
+  //       {
+  //         "date": "28.09.2025",
+  //         "columns": [
+  //           {
+  //             "headerId": "station2",
+  //             "value": "П",
+  //             "color": "#ffeb3b",
+  //             "draggable": true
+  //           },
+  //           {
+  //             "headerId": "station3",
+  //             "value": "М",
+  //             "draggable": false
+  //           },
+  //           {
+  //             "headerId": "station4",
+  //             "value": "О",
+  //             "draggable": false
+  //           },
+  //           {
+  //             "headerId": "station5",
+  //             "value": "П",
+  //             "draggable": false
+  //           }
+  //         ]
+  //       },
+  //       {
+  //         "date": "29.09.2025",
+  //         "columns": [
+  //           {
+  //             "headerId": "station2",
+  //             "value": "ПР",
+  //             "color": "blue",
+  //             "draggable": true
+  //           },
+  //           {
+  //             "headerId": "station3",
+  //             "value": "П",
+  //             "draggable": true
+  //           },
+  //           {
+  //             "headerId": "station4",
+  //             "value": "М",
+  //             "draggable": true
+  //           },
+  //           {
+  //             "headerId": "station5",
+  //             "value": "О"
+  //           }
+  //         ]
+  //       },
+  //       {
+  //         "date": "30.09.2025",
+  //         "columns": [
+  //           {
+  //             "headerId": "station2",
+  //             "value": "О",
+  //             "color": "orange",
+  //             "draggable": true
+  //           },
+  //           {
+  //             "headerId": "station3",
+  //             "value": "Р"
+  //           },
+  //           {
+  //             "headerId": "station4",
+  //             "value": "М"
+  //           },
+  //           {
+  //             "headerId": "station5",
+  //             "value": "Р"
+  //           }
+  //         ]
+  //       },
+  //       {
+  //         "date": "01.10.2025",
+  //         "columns": [
+  //           {
+  //             "headerId": "station2",
+  //             "value": "М",
+  //             "color": "black",
+  //             "draggable": true
+  //           },
+  //           {
+  //             "headerId": "station3",
+  //             "value": "П"
+  //           },
+  //           {
+  //             "headerId": "station4",
+  //             "value": "Р"
+  //           },
+  //           {
+  //             "headerId": "station5",
+  //             "value": "П"
+  //           }
+  //         ]
+  //       },
+  //       {
+  //         "date": "02.10.2025",
+  //         "columns": [
+  //           {
+  //             "headerId": "station2",
+  //             "value": "О",
+  //             "color": "white",
+  //             "draggable": true
+  //           },
+  //           {
+  //             "headerId": "station3",
+  //             "value": "Р"
+  //           },
+  //           {
+  //             "headerId": "station4",
+  //             "value": "П",
+  //             "rowspan": 5,
+  //             "color": "#4caf50"
+  //           },
+  //           {
+  //             "headerId": "station5",
+  //             "value": "Р"
+  //           }
+  //         ]
+  //       },
+  //       {
+  //         "date": "03.10.2025",
+  //         "columns": [
+  //           {
+  //             "headerId": "station2",
+  //             "value": "П",
+  //             "color": "#ffeb3b",
+  //             "draggable": true
+  //           },
+  //           {
+  //             "headerId": "station3",
+  //             "value": "Р"
+  //           },
+  //           {
+  //             "headerId": "station5",
+  //             "value": "Р"
+  //           }
+  //         ]
+  //       },
+  //       {
+  //         "date": "04.10.2025",
+  //         "columns": [
+  //           {
+  //             "headerId": "station1",
+  //             "value": "П"
+  //           },
+  //           {
+  //             "headerId": "station2",
+  //             "value": "М"
+  //           },
+  //           {
+  //             "headerId": "station3",
+  //             "value": "Р"
+  //           },
+  //           {
+  //             "headerId": "station5",
+  //             "value": "Р"
+  //           }
+  //         ]
+  //       },
+  //       {
+  //         "date": "05.10.2025",
+  //         "columns": [
+  //           {
+  //             "headerId": "station1",
+  //             "value": "Р",
+  //             "draggable": true,
+  //             "colspan": 3,
+  //             "color": "#00bcd4"
+  //           },
+  //           {
+  //             "headerId": "station5",
+  //             "value": "Р"
+  //           }
+  //         ]
+  //       },
+  //       {
+  //         "date": "06.10.2025",
+  //         "columns": [
+  //           {
+  //             "headerId": "station1",
+  //             "value": "П"
+  //           },
+  //           {
+  //             "headerId": "station2",
+  //             "value": "М"
+  //           },
+  //           {
+  //             "headerId": "station3",
+  //             "value": "Р"
+  //           },
+  //           {
+  //             "headerId": "station5",
+  //             "value": "Р"
+  //           }
+  //         ]
+  //       },
+  //       {
+  //         "date": "07.10.2025",
+  //         "columns": [
+  //           {
+  //             "headerId": "station1",
+  //             "value": "П"
+  //           },
+  //           {
+  //             "headerId": "station2",
+  //             "value": "М"
+  //           },
+  //           {
+  //             "headerId": "station3",
+  //             "value": "Р"
+  //           },
+  //           {
+  //             "headerId": "station4",
+  //             "value": "П"
+  //           },
+  //           {
+  //             "headerId": "station5",
+  //             "value": "Р"
+  //           }
+  //         ]
+  //       }
+  //     ]
+  //   };
+  //
+  //   const jsonString = JSON.stringify(data);
+  //   console.log(`[DP] Возвращаем ${data.data.length} строк данных`);
+  //   console.log('[DP] Первые 200 символов:', jsonString.substring(0, 200));
+  //
+  //   return jsonString;
+  // };
 
-    const data = {
+  // Провайдер данных с большим набором данных за октябрь 2025
+  window.dp = async function(startDate, direction, batchSize) {
+    console.log(`[DP] startDate: ${startDate}, direction: ${direction}, batchSize: ${batchSize}`);
+
+    const fullData = {
       "data": [
-        {
-          "date": "27.09.2025",
-          "columns": [
-            {
-              "headerId": "station1",
-              "value": "М",
-              "rowspan": 7,
-              "color": "#ffeb3b",
-              "draggable": true
-            },
-            {
-              "headerId": "station2",
-              "value": "Р",
-              "color": "black",
-              "draggable": true
-            },
-            {
-              "headerId": "station3",
-              "value": "П",
-              "color": "#e91e63",
-              "draggable": true
-            },
-            {
-              "headerId": "station4",
-              "value": "Р",
-              "color": "#9c27b0",
-              "draggable": true
-            },
-            {
-              "headerId": "station5",
-              "value": "П",
-              "color": "#795548",
-              "draggable": true
-            }
-          ]
-        },
-        {
-          "date": "28.09.2025",
-          "columns": [
-            {
-              "headerId": "station2",
-              "value": "П",
-              "color": "#ffeb3b",
-              "draggable": true
-            },
-            {
-              "headerId": "station3",
-              "value": "М",
-              "draggable": false
-            },
-            {
-              "headerId": "station4",
-              "value": "О",
-              "draggable": false
-            },
-            {
-              "headerId": "station5",
-              "value": "П",
-              "draggable": false
-            }
-          ]
-        },
-        {
-          "date": "29.09.2025",
-          "columns": [
-            {
-              "headerId": "station2",
-              "value": "ПР",
-              "color": "blue",
-              "draggable": true
-            },
-            {
-              "headerId": "station3",
-              "value": "П",
-              "draggable": true
-            },
-            {
-              "headerId": "station4",
-              "value": "М",
-              "draggable": true
-            },
-            {
-              "headerId": "station5",
-              "value": "О"
-            }
-          ]
-        },
-        {
-          "date": "30.09.2025",
-          "columns": [
-            {
-              "headerId": "station2",
-              "value": "О",
-              "color": "orange",
-              "draggable": true
-            },
-            {
-              "headerId": "station3",
-              "value": "Р"
-            },
-            {
-              "headerId": "station4",
-              "value": "М"
-            },
-            {
-              "headerId": "station5",
-              "value": "Р"
-            }
-          ]
-        },
         {
           "date": "01.10.2025",
           "columns": [
             {
+              "headerId": "station1",
+              "value": "П",
+              "color": "#ff5722",
+              "rowspan": 2,
+              "draggable": true,
+              "child": [
+                { "id": "d1", "name": "Деталь A-100", "value": "450" },
+                { "id": "d2", "name": "Узел B-200", "value": "320" }
+              ]
+            },
+            {
               "headerId": "station2",
-              "value": "М",
-              "color": "black",
-              "draggable": true
+              "value": "Р",
+              "color": "#4caf50",
+              "draggable": true,
+              "child": [
+                { "id": "d3", "name": "Компонент X", "value": "150" }
+              ]
             },
             {
               "headerId": "station3",
-              "value": "П"
-            },
-            {
-              "headerId": "station4",
-              "value": "Р"
-            },
-            {
-              "headerId": "station5",
-              "value": "П"
+              "value": "М",
+              "color": "#2196f3",
+              "draggable": true
             }
           ]
         },
@@ -275,23 +449,17 @@
           "columns": [
             {
               "headerId": "station2",
-              "value": "О",
-              "color": "white",
-              "draggable": true
+              "value": "П",
+              "color": "#ffeb3b",
+              "draggable": true,
+              "child": [
+                { "id": "d4", "name": "Модуль Y", "value": "280" }
+              ]
             },
             {
               "headerId": "station3",
-              "value": "Р"
-            },
-            {
-              "headerId": "station4",
-              "value": "П",
-              "rowspan": 5,
-              "color": "#4caf50"
-            },
-            {
-              "headerId": "station5",
-              "value": "Р"
+              "value": "Р",
+              "draggable": true
             }
           ]
         },
@@ -299,18 +467,26 @@
           "date": "03.10.2025",
           "columns": [
             {
+              "headerId": "station1",
+              "value": "М",
+              "color": "#9c27b0",
+              "draggable": true,
+              "child": [
+                { "id": "d5", "name": "Блок Z-1", "value": "500" },
+                { "id": "d6", "name": "Блок Z-2", "value": "480" },
+                { "id": "d7", "name": "Блок Z-3", "value": "510" }
+              ]
+            },
+            {
               "headerId": "station2",
-              "value": "П",
-              "color": "#ffeb3b",
+              "value": "О",
               "draggable": true
             },
             {
               "headerId": "station3",
-              "value": "Р"
-            },
-            {
-              "headerId": "station5",
-              "value": "Р"
+              "value": "П",
+              "color": "#e91e63",
+              "draggable": true
             }
           ]
         },
@@ -319,19 +495,23 @@
           "columns": [
             {
               "headerId": "station1",
-              "value": "П"
+              "value": "Р",
+              "color": "#00bcd4",
+              "draggable": true
             },
             {
               "headerId": "station2",
-              "value": "М"
+              "value": "П",
+              "color": "#ff9800",
+              "draggable": true,
+              "child": [
+                { "id": "d8", "name": "Сборка K-10", "value": "600" }
+              ]
             },
             {
               "headerId": "station3",
-              "value": "Р"
-            },
-            {
-              "headerId": "station5",
-              "value": "Р"
+              "value": "М",
+              "draggable": true
             }
           ]
         },
@@ -340,14 +520,25 @@
           "columns": [
             {
               "headerId": "station1",
-              "value": "Р",
+              "value": "П",
+              "color": "#795548",
+              "rowspan": 3,
               "draggable": true,
-              "colspan": 3,
-              "color": "#00bcd4"
+              "child": [
+                { "id": "d9", "name": "Часть P-1", "value": "350" },
+                { "id": "d10", "name": "Часть P-2", "value": "340" }
+              ]
             },
             {
-              "headerId": "station5",
-              "value": "Р"
+              "headerId": "station2",
+              "value": "Р",
+              "draggable": true
+            },
+            {
+              "headerId": "station3",
+              "value": "О",
+              "color": "#607d8b",
+              "draggable": true
             }
           ]
         },
@@ -355,20 +546,18 @@
           "date": "06.10.2025",
           "columns": [
             {
-              "headerId": "station1",
-              "value": "П"
-            },
-            {
               "headerId": "station2",
-              "value": "М"
+              "value": "М",
+              "color": "#3f51b5",
+              "draggable": true,
+              "child": [
+                { "id": "d11", "name": "Элемент Q", "value": "275" }
+              ]
             },
             {
               "headerId": "station3",
-              "value": "Р"
-            },
-            {
-              "headerId": "station5",
-              "value": "Р"
+              "value": "П",
+              "draggable": true
             }
           ]
         },
@@ -376,35 +565,587 @@
           "date": "07.10.2025",
           "columns": [
             {
-              "headerId": "station1",
-              "value": "П"
-            },
-            {
               "headerId": "station2",
-              "value": "М"
+              "value": "Р",
+              "color": "#cddc39",
+              "draggable": true
             },
             {
               "headerId": "station3",
-              "value": "Р"
+              "value": "М",
+              "color": "#009688",
+              "draggable": true,
+              "child": [
+                { "id": "d12", "name": "Агрегат R", "value": "420" }
+              ]
+            }
+          ]
+        },
+        {
+          "date": "08.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "О",
+              "color": "#ff5252",
+              "draggable": true
             },
             {
-              "headerId": "station4",
-              "value": "П"
+              "headerId": "station2",
+              "value": "П",
+              "color": "#69f0ae",
+              "draggable": true,
+              "child": [
+                { "id": "d13", "name": "Секция S-1", "value": "380" },
+                { "id": "d14", "name": "Секция S-2", "value": "390" }
+              ]
             },
             {
-              "headerId": "station5",
-              "value": "Р"
+              "headerId": "station3",
+              "value": "Р",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "09.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М",
+              "color": "#448aff",
+              "draggable": true,
+              "child": [
+                { "id": "d15", "name": "Узел T", "value": "310" }
+              ]
+            },
+            {
+              "headerId": "station2",
+              "value": "Р",
+              "draggable": true
+            },
+            {
+              "headerId": "station3",
+              "value": "П",
+              "color": "#e040fb",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "10.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П",
+              "color": "#ffab40",
+              "draggable": true
+            },
+            {
+              "headerId": "station2",
+              "value": "О",
+              "color": "#8d6e63",
+              "draggable": true,
+              "child": [
+                { "id": "d16", "name": "Комплект U-1", "value": "550" },
+                { "id": "d17", "name": "Комплект U-2", "value": "530" },
+                { "id": "d18", "name": "Комплект U-3", "value": "545" }
+              ]
+            },
+            {
+              "headerId": "station3",
+              "value": "М",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "11.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "Р",
+              "color": "#b0bec5",
+              "colspan": 2,
+              "draggable": true
+            },
+            {
+              "headerId": "station3",
+              "value": "П",
+              "color": "#ef5350",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "12.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М",
+              "color": "#66bb6a",
+              "draggable": true,
+              "child": [
+                { "id": "d19", "name": "Блок V", "value": "295" }
+              ]
+            },
+            {
+              "headerId": "station2",
+              "value": "П",
+              "color": "#42a5f5",
+              "draggable": true
+            },
+            {
+              "headerId": "station3",
+              "value": "Р",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "13.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "О",
+              "color": "#ab47bc",
+              "rowspan": 2,
+              "draggable": true,
+              "child": [
+                { "id": "d20", "name": "Часть W-1", "value": "460" },
+                { "id": "d21", "name": "Часть W-2", "value": "470" }
+              ]
+            },
+            {
+              "headerId": "station2",
+              "value": "Р",
+              "color": "#ffa726",
+              "draggable": true
+            },
+            {
+              "headerId": "station3",
+              "value": "М",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "14.10.2025",
+          "columns": [
+            {
+              "headerId": "station2",
+              "value": "П",
+              "color": "#8d6e63",
+              "draggable": true,
+              "child": [
+                { "id": "d22", "name": "Модуль X-10", "value": "525" }
+              ]
+            },
+            {
+              "headerId": "station3",
+              "value": "О",
+              "color": "#78909c",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "15.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П",
+              "color": "#ef9a9a",
+              "draggable": true
+            },
+            {
+              "headerId": "station2",
+              "value": "М",
+              "color": "#80cbc4",
+              "draggable": true,
+              "child": [
+                { "id": "d23", "name": "Узел Y-5", "value": "335" },
+                { "id": "d24", "name": "Узел Y-6", "value": "345" }
+              ]
+            },
+            {
+              "headerId": "station3",
+              "value": "Р",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "16.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "Р",
+              "color": "#9fa8da",
+              "draggable": true,
+              "child": [
+                { "id": "d25", "name": "Блок Z-10", "value": "580" }
+              ]
+            },
+            {
+              "headerId": "station2",
+              "value": "О",
+              "draggable": true
+            },
+            {
+              "headerId": "station3",
+              "value": "П",
+              "color": "#ce93d8",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "17.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М",
+              "color": "#ffcc80",
+              "draggable": true
+            },
+            {
+              "headerId": "station2",
+              "value": "П",
+              "color": "#bcaaa4",
+              "draggable": true,
+              "child": [
+                { "id": "d26", "name": "Сборка AA", "value": "490" },
+                { "id": "d27", "name": "Сборка BB", "value": "495" },
+                { "id": "d28", "name": "Сборка CC", "value": "485" }
+              ]
+            },
+            {
+              "headerId": "station3",
+              "value": "Р",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "18.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П",
+              "color": "#b0bec5",
+              "rowspan": 3,
+              "draggable": true,
+              "child": [
+                { "id": "d29", "name": "Элемент DD", "value": "365" }
+              ]
+            },
+            {
+              "headerId": "station2",
+              "value": "Р",
+              "color": "#ef5350",
+              "draggable": true
+            },
+            {
+              "headerId": "station3",
+              "value": "М",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "19.10.2025",
+          "columns": [
+            {
+              "headerId": "station2",
+              "value": "О",
+              "color": "#66bb6a",
+              "draggable": true,
+              "child": [
+                { "id": "d30", "name": "Компонент EE", "value": "410" }
+              ]
+            },
+            {
+              "headerId": "station3",
+              "value": "П",
+              "color": "#42a5f5",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "20.10.2025",
+          "columns": [
+            {
+              "headerId": "station2",
+              "value": "М",
+              "color": "#ab47bc",
+              "draggable": true
+            },
+            {
+              "headerId": "station3",
+              "value": "Р",
+              "draggable": true,
+              "child": [
+                { "id": "d31", "name": "Модуль FF", "value": "440" },
+                { "id": "d32", "name": "Модуль GG", "value": "435" }
+              ]
+            }
+          ]
+        },
+        {
+          "date": "21.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "О",
+              "color": "#ffa726",
+              "draggable": true,
+              "child": [
+                { "id": "d33", "name": "Узел HH", "value": "520" }
+              ]
+            },
+            {
+              "headerId": "station2",
+              "value": "П",
+              "color": "#8d6e63",
+              "draggable": true
+            },
+            {
+              "headerId": "station3",
+              "value": "М",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "22.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "Р",
+              "color": "#78909c",
+              "draggable": true
+            },
+            {
+              "headerId": "station2",
+              "value": "П",
+              "color": "#ef9a9a",
+              "draggable": true,
+              "child": [
+                { "id": "d34", "name": "Блок II-1", "value": "560" },
+                { "id": "d35", "name": "Блок II-2", "value": "570" }
+              ]
+            },
+            {
+              "headerId": "station3",
+              "value": "О",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "23.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М",
+              "color": "#80cbc4",
+              "draggable": true,
+              "child": [
+                { "id": "d36", "name": "Часть JJ", "value": "325" }
+              ]
+            },
+            {
+              "headerId": "station2",
+              "value": "Р",
+              "draggable": true
+            },
+            {
+              "headerId": "station3",
+              "value": "П",
+              "color": "#9fa8da",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "24.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П",
+              "color": "#ce93d8",
+              "draggable": true
+            },
+            {
+              "headerId": "station2",
+              "value": "О",
+              "color": "#ffcc80",
+              "colspan": 2,
+              "draggable": true,
+              "child": [
+                { "id": "d37", "name": "Комплект KK", "value": "615" },
+                { "id": "d38", "name": "Комплект LL", "value": "605" },
+                { "id": "d39", "name": "Комплект MM", "value": "610" }
+              ]
+            }
+          ]
+        },
+        {
+          "date": "25.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "Р",
+              "color": "#bcaaa4",
+              "rowspan": 2,
+              "draggable": true,
+              "child": [
+                { "id": "d40", "name": "Секция NN", "value": "385" }
+              ]
+            },
+            {
+              "headerId": "station2",
+              "value": "М",
+              "color": "#b0bec5",
+              "draggable": true
+            },
+            {
+              "headerId": "station3",
+              "value": "П",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "26.10.2025",
+          "columns": [
+            {
+              "headerId": "station2",
+              "value": "Р",
+              "color": "#ff5252",
+              "draggable": true,
+              "child": [
+                { "id": "d41", "name": "Агрегат OO", "value": "455" }
+              ]
+            },
+            {
+              "headerId": "station3",
+              "value": "О",
+              "color": "#69f0ae",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "27.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "М",
+              "color": "#448aff",
+              "draggable": true,
+              "child": [
+                { "id": "d42", "name": "Модуль PP", "value": "395" },
+                { "id": "d43", "name": "Модуль QQ", "value": "405" }
+              ]
+            },
+            {
+              "headerId": "station2",
+              "value": "П",
+              "color": "#e040fb",
+              "draggable": true
+            },
+            {
+              "headerId": "station3",
+              "value": "Р",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "28.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "О",
+              "color": "#ffab40",
+              "draggable": true
+            },
+            {
+              "headerId": "station2",
+              "value": "М",
+              "color": "#8d6e63",
+              "draggable": true,
+              "child": [
+                { "id": "d44", "name": "Узел RR", "value": "510" }
+              ]
+            },
+            {
+              "headerId": "station3",
+              "value": "П",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "29.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "П",
+              "color": "#ef5350",
+              "draggable": true,
+              "child": [
+                { "id": "d45", "name": "Блок SS-1", "value": "640" },
+                { "id": "d46", "name": "Блок SS-2", "value": "630" },
+                { "id": "d47", "name": "Блок SS-3", "value": "635" }
+              ]
+            },
+            {
+              "headerId": "station2",
+              "value": "Р",
+              "color": "#66bb6a",
+              "draggable": true
+            },
+            {
+              "headerId": "station3",
+              "value": "М",
+              "draggable": true
+            }
+          ]
+        },
+        {
+          "date": "30.10.2025",
+          "columns": [
+            {
+              "headerId": "station1",
+              "value": "Р",
+              "color": "#42a5f5",
+              "draggable": true
+            },
+            {
+              "headerId": "station2",
+              "value": "О",
+              "color": "#ab47bc",
+              "draggable": true,
+              "child": [
+                { "id": "d48", "name": "Комплект TT", "value": "475" }
+              ]
+            },
+            {
+              "headerId": "station3",
+              "value": "П",
+              "color": "#ffa726",
+              "draggable": true
             }
           ]
         }
       ]
     };
 
-    const jsonString = JSON.stringify(data);
-    console.log(`[DP] Возвращаем ${data.data.length} строк данных`);
-    console.log('[DP] Первые 200 символов:', jsonString.substring(0, 200));
-
-    return jsonString;
+    return JSON.stringify(fullData);
   };
 
   // 3. Проверяем что провайдеры определены

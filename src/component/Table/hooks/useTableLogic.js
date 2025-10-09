@@ -259,7 +259,7 @@ export const useTableLogic = ({
         return finalSize;
     }, [scrollBatchSize]);
 
-    const bufferSize = 4;
+    const bufferSize = 10;
 
     const rowHeight = 40;
 
