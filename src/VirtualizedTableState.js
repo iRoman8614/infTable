@@ -25,6 +25,38 @@ window.VirtualizedTableState = {
  */
 window.VirtualizedTableAPI = {
 
+    // /**
+    //  * Установить провайдер данных
+    //  * @param {function} provider - функция провайдера данных
+    //  */
+    // setDataProvider(provider) {
+    //     if (typeof provider !== 'function') {
+    //         console.warn('[VirtualizedTableAPI] setDataProvider expects function');
+    //         return;
+    //     }
+    //
+    //     window.VirtualizedTableState.dataProvider = provider;
+    //     console.log('[VirtualizedTableAPI] Data provider set');
+    //
+    //     this._dispatchStateEvent('dataProvider', provider);
+    // },
+    //
+    // /**
+    //  * Установить провайдер заголовков
+    //  * @param {function|object} provider - функция или объект провайдера заголовков
+    //  */
+    // setHeaderProvider(provider) {
+    //     if (typeof provider !== 'function' && typeof provider !== 'object') {
+    //         console.warn('[VirtualizedTableAPI] setHeaderProvider expects function or object');
+    //         return;
+    //     }
+    //
+    //     window.VirtualizedTableState.headerProvider = provider;
+    //     console.log('[VirtualizedTableAPI] Header provider set');
+    //
+    //     this._dispatchStateEvent('headerProvider', provider);
+    // },
+
     /**
      * Установить провайдер данных
      * @param {function} provider - функция провайдера данных
@@ -35,8 +67,14 @@ window.VirtualizedTableAPI = {
             return;
         }
 
+        // Проверяем, не установлен ли уже тот же провайдер
+        if (window.VirtualizedTableState.dataProvider === provider) {
+            console.log('[VirtualizedTableAPI] Data provider уже установлен, пропускаем');
+            return;
+        }
+
         window.VirtualizedTableState.dataProvider = provider;
-        console.log('[VirtualizedTableAPI] Data provider set');
+        console.log('[VirtualizedTableAPI] ✅ Data provider установлен');
 
         this._dispatchStateEvent('dataProvider', provider);
     },
@@ -51,8 +89,14 @@ window.VirtualizedTableAPI = {
             return;
         }
 
+        // Проверяем, не установлен ли уже тот же провайдер
+        if (window.VirtualizedTableState.headerProvider === provider) {
+            console.log('[VirtualizedTableAPI] Header provider уже установлен, пропускаем');
+            return;
+        }
+
         window.VirtualizedTableState.headerProvider = provider;
-        console.log('[VirtualizedTableAPI] Header provider set');
+        console.log('[VirtualizedTableAPI] ✅ Header provider установлен');
 
         this._dispatchStateEvent('headerProvider', provider);
     },

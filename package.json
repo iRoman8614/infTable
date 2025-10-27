@@ -22,7 +22,7 @@
   "scripts": {
     "build:webcomponent": "webpack --config webpack.config.js --mode=production",
     "dev:webcomponent": "webpack --config webpack.config.js --mode=development --watch",
-    "serve": "http-server . -p 3001 -o"
+    "serve": "http-server . -p 8081 -o"
   },
   "eslintConfig": {
     "extends": [

@@ -34,7 +34,10 @@ const processTableData = (dataArray, leafNodes) => {
                     draggable: draggable,
                     displayed: true,
                     rowspan: rowspan,
-                    colspan: colspan
+                    colspan: colspan,
+                    children: columnData.child || [],
+                    nodeId: leafNodeId,
+                    headerId: leafNodeId
                 };
 
                 if (rowspan > 1) {
@@ -47,7 +50,8 @@ const processTableData = (dataArray, leafNodes) => {
                         value: value,
                         color: color,
                         draggable: draggable,
-                        colspan: colspan
+                        colspan: colspan,
+                        children: columnData.child || []
                     });
                 }
 
@@ -56,19 +60,22 @@ const processTableData = (dataArray, leafNodes) => {
                         const nextNodeIndex = nodeIndex + i;
                         if (nextNodeIndex < leafNodeIds.length) {
                             const nextNodeId = leafNodeIds[nextNodeIndex];
-                            elements[nextNodeId] = {
-                                status: value,
-                                color: color,
-                                draggable: draggable,
-                                displayed: false,
-                                rowspan: 1,
-                                colspan: 1,
-                                parentColspan: {
-                                    parentNodeId: leafNodeId,
-                                    parentNodeIndex: nodeIndex,
-                                    colspanIndex: i
-                                }
-                            };
+                                    elements[nextNodeId] = {
+                                        status: value,
+                                        color: color,
+                                        draggable: draggable,
+                                        displayed: false,
+                                        rowspan: 1,
+                                        colspan: 1,
+                                        parentColspan: {
+                                            parentNodeId: leafNodeId,
+                                            parentNodeIndex: nodeIndex,
+                                            colspanIndex: i
+                                        },
+                                        children: columnData.child || [],
+                                        nodeId: nextNodeId,
+                                        headerId: nextNodeId
+                                    };
                         }
                     }
                 }
@@ -87,7 +94,10 @@ const processTableData = (dataArray, leafNodes) => {
                             displayed: false,
                             rowspan: 1,
                             colspan: 1,
-                            parentRowspan: rowspanInfo
+                            parentRowspan: rowspanInfo,
+                            children: rowspanInfo.children || [],
+                            nodeId: leafNodeId,
+                            headerId: leafNodeId
                         };
 
                         if (rowspanInfo.colspan > 1) {
@@ -107,7 +117,10 @@ const processTableData = (dataArray, leafNodes) => {
                                             parentNodeId: leafNodeId,
                                             parentNodeIndex: rowspanInfo.nodeIndex,
                                             colspanIndex: i
-                                        }
+                                        },
+                                        children: rowspanInfo.children || [],
+                                        nodeId: nextNodeId,
+                                        headerId: nextNodeId
                                     };
                                 }
                             }
@@ -139,7 +152,10 @@ const processTableData = (dataArray, leafNodes) => {
                                         parentNodeId: prevNodeId,
                                         parentNodeIndex: prevIndex,
                                         colspanIndex: nodeIndex - prevIndex
-                                    }
+                                    },
+                                    children: prevColumnData.child || [],
+                                    nodeId: leafNodeId,
+                                    headerId: leafNodeId
                                 };
                                 isUnderColspan = true;
                                 break;
@@ -154,7 +170,10 @@ const processTableData = (dataArray, leafNodes) => {
                             draggable: false,
                             displayed: true,
                             rowspan: 1,
-                            colspan: 1
+                            colspan: 1,
+                            children: [],
+                            nodeId: leafNodeId,
+                            headerId: leafNodeId
                         };
                     }
                 }
@@ -803,6 +822,17 @@ export const useTableLogic = ({
 
     // ИНИЦИАЛИЗАЦИЯ с глобальным флагом
     useEffect(() => {
+        // Cleanup функция для сброса глобального флага при размонтировании
+        const cleanup = () => {
+            console.log('[Init] Компонент размонтируется, сбрасываем глобальный флаг');
+            globalInitialized = false;
+        };
+
+        // Добавляем cleanup в window для возможности ручного сброса
+        if (typeof window !== 'undefined') {
+            window.resetTableInitialization = cleanup;
+        }
+
         // Проверяем ГЛОБАЛЬНЫЙ флаг
         if (globalInitialized) {
             console.log('[Init] УЖЕ инициализирован глобально, пропускаем');
@@ -812,7 +842,7 @@ export const useTableLogic = ({
                 console.log('[Init] Восстанавливаем isInitialized после ре-рендера');
                 setIsInitialized(true);
             }
-            return;
+            return cleanup; // Возвращаем cleanup даже при пропуске инициализации
         }
 
         if (dates.length === 0) {
@@ -893,6 +923,9 @@ export const useTableLogic = ({
 
             initializeTable();
         }
+
+        // Возвращаем cleanup функцию для автоматического вызова при размонтировании
+        return cleanup;
     }, [
         dates.length,
         treeStructure.leafNodes.length,
