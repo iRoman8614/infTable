@@ -1,4 +1,3 @@
-
 import React, {useState, useMemo, useCallback, useEffect, useRef} from 'react';
 import { TableHeader } from './components/TableHeader.jsx';
 import { FilterModal } from './components/FilterModal.jsx';
@@ -17,7 +16,7 @@ export const Table = ({
                           maxWidth = '100%',
                           maxHeight = '600px',
                           colorTheme,
-                          scrollBatchSize = 50,
+                          scrollBatchSize = 30,
                           debug = false,
                           dataProvider = null,
                           headerProvider = null,
@@ -43,25 +42,35 @@ export const Table = ({
             : (propShowFilters || false);
     }, [propShowFilters]);
 
-    const [showDeviations, setShowDeviations] = useState(
-        (typeof window !== 'undefined' && window.VirtualizedTableState)
+    const showDeviations = useMemo(() => {
+        return typeof window !== 'undefined' && window.VirtualizedTableState
             ? window.VirtualizedTableState.showDeviations
-            : (propShowDeviations || false)
-    );
-
-// Слушатель изменений showDeviations
-    useEffect(() => {
-        const handleStateChange = (event) => {
-            if (event.detail.property === 'showDeviations') {
-                setShowDeviations(event.detail.value);
-            }
-        };
-
-        window.addEventListener('virtualized-table-state-change', handleStateChange);
-        return () => window.removeEventListener('virtualized-table-state-change', handleStateChange);
-    }, []);
+            : (propShowDeviations || false);
+    }, [propShowDeviations]);
 
     const hasGlobalHandlers = useGlobalClickHandlers();
+
+    useEffect(() => {
+        let isMounted = true;
+
+        return () => {
+            if (!isMounted) return;
+            isMounted = false;
+
+            console.log('[Table] Реальное размонтирование - сброс');
+
+            if (typeof window !== 'undefined' && typeof window.resetTableInitialization === 'function') {
+                window.resetTableInitialization();
+            }
+
+            if (typeof window !== 'undefined' && window.VirtualizedTableState) {
+                window.VirtualizedTableState._initialized = false;
+                window.VirtualizedTableState._loading = false;
+                window.VirtualizedTableState._error = null;
+                delete window.VirtualizedTableState.refreshTableViewport;
+            }
+        };
+    }, []);
 
     const { headersData, headersError, isLoading: headersLoading } = useHeadersLoader(
         typeof window !== 'undefined' && window.VirtualizedTableState?.headerProvider
@@ -197,22 +206,12 @@ export const Table = ({
         treeStructure
     });
 
-    // useEffect(() => {
-    //     if (typeof window !== 'undefined' && tableLogic.refreshViewport) {
-    //         window.refreshTableViewport = tableLogic.refreshViewport;
-    //
-    //         return () => {
-    //             delete window.refreshTableViewport;
-    //         };
-    //     }
-    // }, [tableLogic.refreshViewport]);
-
     useEffect(() => {
         if (typeof window !== 'undefined' && tableLogic.refreshViewport) {
-            window.VirtualizedTableState.refreshTableViewport = tableLogic.refreshViewport;
+            window.refreshTableViewport = tableLogic.refreshViewport;
 
             return () => {
-                delete window.VirtualizedTableState.refreshTableViewport;
+                delete window.refreshTableViewport;
             };
         }
     }, [tableLogic.refreshViewport]);
@@ -223,7 +222,7 @@ export const Table = ({
 
     // Дополнительная логика видимости для заголовков на основе отфильтрованного дерева
     const nodeVisibilityLogic = useNodeVisibility(treeStructure);
-    
+
     // Синхронизация: берем видимость из фильтров для заголовков (кроме COMPONENT)
     const syncedNodeVisibility = useMemo(() => {
         const synced = { ...nodeVisibilityLogic.nodeVisibility };
@@ -261,20 +260,20 @@ export const Table = ({
     const toggleFilterNodeVisibility = useCallback((nodeId) => {
         // Сохраняем текущее состояние перед переключением
         const wasVisible = filterNodeVisibilityLogic.nodeVisibility[nodeId];
-        
+
         // Переключаем видимость узла в фильтрах
         filterNodeVisibilityLogic.toggleNodeVisibility(nodeId);
-        
+
         // Новое состояние - обратное предыдущему
         const isNowVisible = !wasVisible;
-        
+
         const node = filterTreeStructure.nodesMap.get(nodeId);
         console.log(`[ToggleFilter] Toggling node ${nodeId}, type: ${node?.type}, isNowVisible: ${isNowVisible}`);
-        
+
         // Для COMPONENT элементов - управляем children в ячейках
         if (node && node.type === 'COMPONENT') {
             console.log(`[ToggleFilter] Toggling COMPONENT: ${nodeId}, isNowVisible: ${isNowVisible}`);
-            
+
             // Нужно найти все COMPONENT узлы внутри этого узла (детали компонента)
             const findComponentNodes = (n) => {
                 const results = [];
@@ -288,10 +287,10 @@ export const Table = ({
                 }
                 return results;
             };
-            
+
             const componentNodes = findComponentNodes(node);
             console.log(`[ToggleFilter] Found component child nodes:`, componentNodes);
-            
+
             // Находим родительскую станцию (ASSEMBLE тип)
             const findParentStation = (nodeId) => {
                 let currentNodeId = nodeId;
@@ -304,16 +303,16 @@ export const Table = ({
                 }
                 return null;
             };
-            
+
             const stationNode = findParentStation(nodeId);
-            
+
             if (stationNode) {
                 console.log(`[ToggleFilter] Found parent station: ${stationNode.id}`);
-                
+
                 // Находим children элементы этой станции в ячейках
                 const stationChildren = childrenVisibilityLogic.childrenVisibility[stationNode.id] || {};
                 console.log(`[ToggleFilter] Station ${stationNode.id} has children in visibility:`, Object.keys(stationChildren));
-                
+
                 // Проверяем все листовые узлы дочерних COMPONENT элементов
                 componentNodes.forEach(componentNodeId => {
                     const componentNode = filterTreeStructure.nodesMap.get(componentNodeId);
@@ -323,7 +322,7 @@ export const Table = ({
                         if (stationChildren[componentNodeId] !== undefined) {
                             const childIsVisible = stationChildren[componentNodeId];
                             console.log(`[ToggleFilter] Component detail ${componentNodeId} visibility: ${childIsVisible}`);
-                            
+
                             // Если компонент теперь видим и children скрыт - включаем
                             // Если компонент теперь невидим и children видим - выключаем
                             if (isNowVisible && !childIsVisible) {
@@ -466,14 +465,7 @@ export const Table = ({
         return element.children || [];
     }, []);
 
-    // Функция получения видимых children элементов
-    const getVisibleCellChildren = useCallback((processedRow, nodeId) => {
-        const children = getCellChildren(processedRow, nodeId);
-        const visibleChildren = childrenVisibilityLogic.getVisibleChildren(nodeId);
-
-        return children.filter(child => visibleChildren.includes(child.id));
-    }, [getCellChildren, childrenVisibilityLogic]);
-
+    // Функция получения operating элементов ячейки
     const getCellOperating = useCallback((processedRow, nodeId) => {
         if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
             return [];
@@ -483,7 +475,7 @@ export const Table = ({
         return element.operating || [];
     }, []);
 
-    // получение shift
+    // Функция получения shift элементов ячейки
     const getCellShift = useCallback((processedRow, nodeId) => {
         if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
             return [];
@@ -492,6 +484,37 @@ export const Table = ({
         const element = processedRow.elements[nodeId];
         return element.shift || [];
     }, []);
+
+    // Функция получения видимых children элементов
+    const getVisibleCellChildren = useCallback((processedRow, nodeId) => {
+        const children = getCellChildren(processedRow, nodeId);
+        const visibleChildrenFromToggle = childrenVisibilityLogic.getVisibleChildren(nodeId);
+
+        // Получаем видимые COMPONENT узлы из фильтра
+        const visibleComponentsFromFilter = Object.keys(filterNodeVisibilityLogic.nodeVisibility)
+            .filter(id => filterNodeVisibilityLogic.nodeVisibility[id] === true);
+
+        // Показываем child если:
+        // 1. Он явно включен через чекбокс (visibleChildrenFromToggle)
+        // 2. ИЛИ его ID виден в filterNodeVisibilityLogic (COMPONENT из фильтра)
+        const result = children.filter(child => {
+            const fromToggle = visibleChildrenFromToggle.includes(child.id);
+            const fromFilter = visibleComponentsFromFilter.includes(child.id);
+            return fromToggle || fromFilter;
+        });
+
+        // Логируем только если есть children
+        if (children.length > 0) {
+            console.log(`[Children] nodeId: ${nodeId}, total: ${children.length}, visible: ${result.length}`);
+            children.forEach(child => {
+                const fromToggle = visibleChildrenFromToggle.includes(child.id);
+                const fromFilter = visibleComponentsFromFilter.includes(child.id);
+                console.log(`  - ${child.id}: toggle=${fromToggle}, filter=${fromFilter}, show=${fromToggle || fromFilter}`);
+            });
+        }
+
+        return result;
+    }, [getCellChildren, childrenVisibilityLogic, filterNodeVisibilityLogic]);
 
     // Слушаем изменения глобального состояния
     useEffect(() => {
@@ -808,7 +831,7 @@ export const Table = ({
                                                 {!isLoading && cellChildren.length > 0 && (
                                                     <div className="vt-cell__children">
                                                         {cellChildren.map((child, index) => (
-                                                            <div key={child.id} className="vt-cell__child">
+                                                            <div key={child.id} style={{ color: getContrastTextColor(cellColor)}} className="vt-cell__child">
                                                                 {child.value}
                                                             </div>
                                                         ))}

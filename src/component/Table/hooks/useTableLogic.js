@@ -35,7 +35,7 @@ const processTableData = (dataArray, leafNodes) => {
                     displayed: true,
                     rowspan: rowspan,
                     colspan: colspan,
-                    children: columnData.child || [],
+                    children: columnData.children || [],
                     operating: columnData.operating || [],
                     shift: columnData.shift || [],
                     nodeId: leafNodeId,
@@ -53,7 +53,7 @@ const processTableData = (dataArray, leafNodes) => {
                         color: color,
                         draggable: draggable,
                         colspan: colspan,
-                        children: columnData.child || [],
+                        children: columnData.children || [],
                         operating: columnData.operating || [],
                         shift: columnData.shift || []
                     });
@@ -76,7 +76,7 @@ const processTableData = (dataArray, leafNodes) => {
                                             parentNodeIndex: nodeIndex,
                                             colspanIndex: i
                                         },
-                                        children: columnData.child || [],
+                                        children: columnData.children || [],
                                         operating: columnData.operating || [],
                                         shift: columnData.shift || [],
                                         nodeId: nextNodeId,
@@ -163,7 +163,7 @@ const processTableData = (dataArray, leafNodes) => {
                                         parentNodeIndex: prevIndex,
                                         colspanIndex: nodeIndex - prevIndex
                                     },
-                                    children: prevColumnData.child || [],
+                                    children: prevColumnData.children || [],
                                     operating: prevColumnData.operating || [],
                                     shift: prevColumnData.shift || [],
                                     nodeId: leafNodeId,
@@ -249,10 +249,8 @@ const canExcludeDate = (dateIndex, dates, visibleData, bufferRange) => {
     return true;
 };
 
-// ГЛОБАЛЬНЫЙ флаг инициализации (вне компонента)
 let globalInitialized = false;
 
-// Функция для сброса глобального флага (для отладки)
 if (typeof window !== 'undefined') {
     window.resetTableInitialization = () => {
         globalInitialized = false;
@@ -284,9 +282,8 @@ export const useTableLogic = ({
     const isScrollCompensating = useRef(false);
 
     const batchSize = useMemo(() => {
-        // Используем только проп, преобразуем в число
         const numSize = Number(scrollBatchSize);
-        const finalSize = !isNaN(numSize) && numSize > 0 ? numSize : 7;
+        const finalSize = !isNaN(numSize) && numSize > 0 ? numSize : 30;
 
         console.log('[useTableLogic] batchSize из пропса:', finalSize);
         return finalSize;
@@ -460,16 +457,13 @@ export const useTableLogic = ({
     // }, [dataProvider, onDataLoad, onError, treeStructure.leafNodes]);
 
     const loadBatch = useCallback(async (startDate, direction, batchSize) => {
-        // Корректируем startDate для перекрытия на 1 дату
         let adjustedStartDate = startDate;
 
         if (direction === 'down') {
-            // Для загрузки вниз: сдвигаем на 1 назад
             const dateObj = parseDateString(startDate);
             dateObj.setUTCDate(dateObj.getUTCDate() - 1);
             adjustedStartDate = formatDate(dateObj);
         } else if (direction === 'up') {
-            // Для загрузки вверх: сдвигаем на 1 вперед
             const dateObj = parseDateString(startDate);
             dateObj.setUTCDate(dateObj.getUTCDate() + 1);
             adjustedStartDate = formatDate(dateObj);
@@ -834,29 +828,23 @@ export const useTableLogic = ({
         }
     }, [handleScrollThrottled]);
 
-    // ИНИЦИАЛИЗАЦИЯ с глобальным флагом
     useEffect(() => {
-        // Cleanup функция для сброса глобального флага при размонтировании
         const cleanup = () => {
             console.log('[Init] Компонент размонтируется, сбрасываем глобальный флаг');
             globalInitialized = false;
         };
 
-        // Добавляем cleanup в window для возможности ручного сброса
         if (typeof window !== 'undefined') {
             window.resetTableInitialization = cleanup;
         }
 
-        // Проверяем ГЛОБАЛЬНЫЙ флаг
         if (globalInitialized) {
             console.log('[Init] УЖЕ инициализирован глобально, пропускаем');
-
-            // Если компонент перемонтировался но данные есть, просто устанавливаем флаг
             if (Object.keys(visibleData).length > 0 && !isInitialized) {
                 console.log('[Init] Восстанавливаем isInitialized после ре-рендера');
                 setIsInitialized(true);
             }
-            return cleanup; // Возвращаем cleanup даже при пропуске инициализации
+            return cleanup;
         }
 
         if (dates.length === 0) {
@@ -865,7 +853,6 @@ export const useTableLogic = ({
                 return;
             }
 
-            // Устанавливаем ГЛОБАЛЬНЫЙ флаг
             globalInitialized = true;
             console.log('[Init] Начинаем ЕДИНСТВЕННУЮ инициализацию (globalInitialized = true)');
 
@@ -925,7 +912,7 @@ export const useTableLogic = ({
                         }, 300);
                     } catch (error) {
                         console.error('[Init] Ошибка при загрузке:', error);
-                        globalInitialized = false; // Сбрасываем при ошибке
+                        globalInitialized = false;
                         setIsInitialized(true);
 
                         if (typeof window !== 'undefined' && window.VirtualizedTableState) {
@@ -938,7 +925,6 @@ export const useTableLogic = ({
             initializeTable();
         }
 
-        // Возвращаем cleanup функцию для автоматического вызова при размонтировании
         return cleanup;
     }, [
         dates.length,
@@ -949,8 +935,6 @@ export const useTableLogic = ({
         batchSize,
         loadBatch,
         bufferSize,
-        // visibleData,
-        // isInitialized
     ]);
 
     useEffect(() => {

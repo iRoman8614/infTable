@@ -3,7 +3,6 @@
  * Для использования в Java Vaadin и других интеграциях
  */
 
-// Создаем глобальный объект состояния
 window.VirtualizedTableState = {
     // Провайдеры данных
     dataProvider: null,
@@ -25,39 +24,6 @@ window.VirtualizedTableState = {
  * API для управления состоянием таблицы
  */
 window.VirtualizedTableAPI = {
-
-    // /**
-    //  * Установить провайдер данных
-    //  * @param {function} provider - функция провайдера данных
-    //  */
-    // setDataProvider(provider) {
-    //     if (typeof provider !== 'function') {
-    //         console.warn('[VirtualizedTableAPI] setDataProvider expects function');
-    //         return;
-    //     }
-    //
-    //     window.VirtualizedTableState.dataProvider = provider;
-    //     console.log('[VirtualizedTableAPI] Data provider set');
-    //
-    //     this._dispatchStateEvent('dataProvider', provider);
-    // },
-    //
-    // /**
-    //  * Установить провайдер заголовков
-    //  * @param {function|object} provider - функция или объект провайдера заголовков
-    //  */
-    // setHeaderProvider(provider) {
-    //     if (typeof provider !== 'function' && typeof provider !== 'object') {
-    //         console.warn('[VirtualizedTableAPI] setHeaderProvider expects function or object');
-    //         return;
-    //     }
-    //
-    //     window.VirtualizedTableState.headerProvider = provider;
-    //     console.log('[VirtualizedTableAPI] Header provider set');
-    //
-    //     this._dispatchStateEvent('headerProvider', provider);
-    // },
-
     /**
      * Установить провайдер данных
      * @param {function} provider - функция провайдера данных
@@ -68,7 +34,6 @@ window.VirtualizedTableAPI = {
             return;
         }
 
-        // Проверяем, не установлен ли уже тот же провайдер
         if (window.VirtualizedTableState.dataProvider === provider) {
             console.log('[VirtualizedTableAPI] Data provider уже установлен, пропускаем');
             return;
@@ -90,7 +55,6 @@ window.VirtualizedTableAPI = {
             return;
         }
 
-        // Проверяем, не установлен ли уже тот же провайдер
         if (window.VirtualizedTableState.headerProvider === provider) {
             console.log('[VirtualizedTableAPI] Header provider уже установлен, пропускаем');
             return;
@@ -188,6 +152,27 @@ window.VirtualizedTableAPI = {
         } else {
             console.warn('[VirtualizedTableAPI] Table not initialized or refresh function not available');
         }
+    },
+
+    /**
+     * Сбросить состояние таблицы для повторной инициализации
+     */
+    resetTable() {
+        console.log('[VirtualizedTableAPI] Resetting table state...');
+
+        if (typeof window.resetTableInitialization === 'function') {
+            window.resetTableInitialization();
+        }
+
+        window.VirtualizedTableState._initialized = false;
+        window.VirtualizedTableState._loading = false;
+        window.VirtualizedTableState._error = null;
+
+        delete window.VirtualizedTableState.refreshTableViewport;
+
+        console.log('[VirtualizedTableAPI] Table state reset complete');
+
+        this._dispatchStateEvent('reset', true);
     },
 
     /**

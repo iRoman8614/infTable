@@ -97,7 +97,6 @@
 
 .vt-cell__children {
   font-size: 10px;
-  color: #666;
   margin-top: 2px;
   text-align: center;
 }
@@ -105,7 +104,6 @@
 .vt-cell__child {
   margin-bottom: 1px;
   padding: 1px 2px;
-  background-color: rgba(255, 255, 255, 0.3);
   border-radius: 2px;
 }
 

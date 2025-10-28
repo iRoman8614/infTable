@@ -13,18 +13,16 @@ export const FiltersPanel = React.memo(({
                                             toggleNodeVisibility,
                                             toggleNodeExpansion
                                         }) => {
-    // Мемоизированный компонент узла
+
     const NodeComponent = React.memo(({ node, level = 0 }) => {
         const hasChildren = node.children && node.children.length > 0;
         const isExpanded = expandedNodes.has(node.id);
         const isVisible = nodeVisibility[node.id];
 
-        // Безопасное получение метаданных
         const metadata = node.metadata || {};
         const nodeColor = metadata.color || '#ccc';
         const workCount = metadata.workCount;
 
-        // Мемоизированные обработчики
         const handleVisibilityToggle = useCallback(() => {
             toggleNodeVisibility(node.id);
         }, [node.id]);
@@ -33,7 +31,6 @@ export const FiltersPanel = React.memo(({
             toggleNodeExpansion(node.id);
         }, [node.id]);
 
-        // Мемоизированные стили
         const containerStyle = useMemo(() => ({
             display: 'grid',
             gridTemplateColumns: '120px auto 150px',
@@ -139,7 +136,6 @@ export const FiltersPanel = React.memo(({
         );
     });
 
-    // Мемоизированные обработчики
     const handleSearchChange = useCallback((e) => {
         if (setSearchTerm) {
             setSearchTerm(e.target.value);
@@ -152,7 +148,6 @@ export const FiltersPanel = React.memo(({
         }
     }, [setShowFilters]);
 
-    // Мемоизированные стили
     const containerStyle = useMemo(() => ({
         border: '1px solid #ddd',
         borderRadius: '4px',
@@ -193,7 +188,6 @@ export const FiltersPanel = React.memo(({
         overflowY: 'auto'
     }), []);
 
-    // Безопасная проверка filteredTree
     if (!filteredTree || !Array.isArray(filteredTree)) {
         return (
             <div style={{
