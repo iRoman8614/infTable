@@ -12,10 +12,16 @@ export const useNodeVisibility = (treeStructure) => {
     useEffect(() => {
         const visibility = {};
         const addNodeAndChildren = (node) => {
-            visibility[node.id] = true;
+            // COMPONENT элементы по умолчанию невидимы (закрытый глазик)
+            const isVisible = node.type !== 'COMPONENT';
+            visibility[node.id] = isVisible;
+            if (!isVisible) {
+                console.log(`[useNodeVisibility] Initializing ${node.id} (${node.type}) as NOT visible`);
+            }
             node.children.forEach(addNodeAndChildren);
         };
         treeStructure.tree.forEach(addNodeAndChildren);
+        console.log(`[useNodeVisibility] Initialized visibility for ${Object.keys(visibility).length} nodes`);
         setNodeVisibility(visibility);
     }, [treeStructure]);
 

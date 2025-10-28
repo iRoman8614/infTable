@@ -11,6 +11,7 @@ window.VirtualizedTableState = {
     // Режимы отображения
     editMode: false,
     showFilters: false,
+    showDeviations: false,
     // Обработчики событий
     onCellDoubleClick: null,
     onCellMove: null,
@@ -162,12 +163,28 @@ window.VirtualizedTableAPI = {
     },
 
     /**
+     * Установить видимость отклонений (operating и shift)
+     * @param {boolean} show - показать/скрыть отклонения
+     */
+    setShowDeviations(show) {
+        if (typeof show !== 'boolean') {
+            console.warn('[VirtualizedTableAPI] setShowDeviations expects boolean');
+            return;
+        }
+
+        window.VirtualizedTableState.showDeviations = show;
+        console.log('[VirtualizedTableAPI] Show deviations set to:', show);
+
+        this._dispatchStateEvent('showDeviations', show);
+    },
+
+    /**
      * Обновить viewport таблицы принудительно
      */
     refreshViewport() {
-        if (typeof window.refreshTableViewport === 'function') {
+        if (typeof window.VirtualizedTableState.refreshTableViewport === 'function') {
             console.log('[VirtualizedTableAPI] Refreshing viewport...');
-            window.refreshTableViewport();
+            window.VirtualizedTableState.refreshTableViewport();
         } else {
             console.warn('[VirtualizedTableAPI] Table not initialized or refresh function not available');
         }
@@ -206,107 +223,3 @@ window.VirtualizedTableAPI = {
 };
 
 console.log('[VirtualizedTableState] Global state and API initialized');
-
-/**
- * ДОКУМЕНТАЦИЯ API ДЛЯ РАЗРАБОТЧИКОВ
- *
- * === ОСНОВНЫЕ МЕТОДЫ ===
- *
- * // Установка провайдеров
- * VirtualizedTableAPI.setDataProvider(async (startDate, direction, batchSize) => {
- *   const response = await fetch('/api/table-data', {
- *     method: 'POST',
- *     body: JSON.stringify({ startDate, direction, batchSize })
- *   });
- *   return response.text(); // возвращает JSON string
- * });
- *
- * VirtualizedTableAPI.setHeaderProvider(async () => {
- *   const response = await fetch('/api/headers');
- *   return response.json();
- * });
- *
- * // Обработчики событий
- * VirtualizedTableAPI.setOnCellDoubleClick((cellData, event) => {
- *   console.log('Двойной клик:', cellData);
- * });
- *
- * VirtualizedTableAPI.setOnCellMove((moveData) => {
- *   console.log('Перемещение:', moveData);
- * });
- *
- * // Обновление viewport
- * VirtualizedTableAPI.refreshViewport();
- *
- * // Проверка состояния
- * const state = VirtualizedTableAPI.getState();
- * console.log('Состояние:', state);
- *
- * === ФОРМАТ ПРОВАЙДЕРА ДАННЫХ ===
- *
- * async function dataProvider(startDate, direction, batchSize)
- *
- * Параметры:
- * - startDate: string - дата в формате "DD.MM.YYYY"
- * - direction: string - "up" или "down" (направление загрузки)
- * - batchSize: number - количество записей для загрузки
- *
- * Возврат: string (JSON) в формате:
- * {
- *   "data": [
- *     {
- *       "date": "DD.MM.YYYY",
- *       "columns": [
- *         {
- *           "headerId": "string",     // ID заголовка
- *           "value": "string",        // Значение ячейки
- *           "rowspan": number,        // Объединение строк (опционально)
- *           "colspan": number,        // Объединение столбцов (опционально)
- *           "color": "string",        // Цвет фона (опционально)
- *           "draggable": boolean      // Можно ли перетаскивать (опционально)
- *         }
- *       ]
- *     }
- *   ]
- * }
- *
- * === ФОРМАТ ПРОВАЙДЕРА ЗАГОЛОВКОВ ===
- *
- * {
- *   "headers": [
- *     {
- *       "id": "string",              // Уникальный ID заголовка
- *       "parentId": "string|null",   // ID родительского заголовка
- *       "type": "string",            // Тип узла
- *       "name": "string",            // Отображаемое имя
- *       "metadata": {
- *         "color": "string",         // Цвет заголовка
- *         "tooltip": "string",       // Подсказка (опционально)
- *         "workCount": number        // Количество работ (опционально)
- *       }
- *     }
- *   ]
- * }
- *
- * === ФОРМАТ ДАННЫХ ДЛЯ ОБРАБОТЧИКОВ ===
- *
- * onCellDoubleClick: (cellData, event) => void
- * cellData = {
- *   date: "DD.MM.YYYY",
- *   nodeId: "string",
- *   value: "string",
- *   color: "string|null",
- *   draggable: boolean,
- *   rowspan: number,
- *   colspan: number
- * }
- *
- * onCellMove: (moveData) => void
- * moveData = {
- *   fromDate: "DD.MM.YYYY",
- *   toDate: "DD.MM.YYYY",
- *   fromNodeId: "string",
- *   toNodeId: "string",
- *   value: "string"
- * }
- */

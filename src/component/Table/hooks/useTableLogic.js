@@ -36,6 +36,8 @@ const processTableData = (dataArray, leafNodes) => {
                     rowspan: rowspan,
                     colspan: colspan,
                     children: columnData.child || [],
+                    operating: columnData.operating || [],
+                    shift: columnData.shift || [],
                     nodeId: leafNodeId,
                     headerId: leafNodeId
                 };
@@ -51,7 +53,9 @@ const processTableData = (dataArray, leafNodes) => {
                         color: color,
                         draggable: draggable,
                         colspan: colspan,
-                        children: columnData.child || []
+                        children: columnData.child || [],
+                        operating: columnData.operating || [],
+                        shift: columnData.shift || []
                     });
                 }
 
@@ -73,6 +77,8 @@ const processTableData = (dataArray, leafNodes) => {
                                             colspanIndex: i
                                         },
                                         children: columnData.child || [],
+                                        operating: columnData.operating || [],
+                                        shift: columnData.shift || [],
                                         nodeId: nextNodeId,
                                         headerId: nextNodeId
                                     };
@@ -96,6 +102,8 @@ const processTableData = (dataArray, leafNodes) => {
                             colspan: 1,
                             parentRowspan: rowspanInfo,
                             children: rowspanInfo.children || [],
+                            operating: rowspanInfo.operating || [],
+                            shift: rowspanInfo.shift || [],
                             nodeId: leafNodeId,
                             headerId: leafNodeId
                         };
@@ -119,6 +127,8 @@ const processTableData = (dataArray, leafNodes) => {
                                             colspanIndex: i
                                         },
                                         children: rowspanInfo.children || [],
+                                        operating: rowspanInfo.operating || [],
+                                        shift: rowspanInfo.shift || [],
                                         nodeId: nextNodeId,
                                         headerId: nextNodeId
                                     };
@@ -154,6 +164,8 @@ const processTableData = (dataArray, leafNodes) => {
                                         colspanIndex: nodeIndex - prevIndex
                                     },
                                     children: prevColumnData.child || [],
+                                    operating: prevColumnData.operating || [],
+                                    shift: prevColumnData.shift || [],
                                     nodeId: leafNodeId,
                                     headerId: leafNodeId
                                 };
@@ -172,6 +184,8 @@ const processTableData = (dataArray, leafNodes) => {
                             rowspan: 1,
                             colspan: 1,
                             children: [],
+                            operating: [],
+                            shift: [],
                             nodeId: leafNodeId,
                             headerId: leafNodeId
                         };
