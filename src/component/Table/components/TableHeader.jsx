@@ -9,7 +9,6 @@ export const TableHeader = React.memo(({
                                            nodeVisibility,
                                            activeColorTheme,
                                            allowedTypes = ['NODE', 'ASSEMBLE', 'COMPONENT'],
-                                           onFilterClick
                                        }) => {
 
     const isNodeFullyVisible = useCallback((nodeId) => {

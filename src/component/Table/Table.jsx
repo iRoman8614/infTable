@@ -1,6 +1,6 @@
-import React, {useState, useMemo, useCallback, useEffect, useRef} from 'react';
+import React, {useState, useMemo, useCallback, useEffect} from 'react';
 import { TableHeader } from './components/TableHeader.jsx';
-import { FilterModal } from './components/FilterModal.jsx';
+// import { FilterModal } from './components/FilterModal.jsx';
 import { useTableLogic } from './hooks/useTableLogic.js';
 import { useNodeVisibility } from './hooks/useNodeVisibility.js';
 import { useChildrenVisibility } from './hooks/useChildrenVisibility.js';
@@ -25,7 +25,7 @@ export const Table = ({
                           onCellDoubleClick = null,
                           onCellMove = null,
                           editMode: propEditMode,
-                          showFilters: propShowFilters,
+                          // showFilters: propShowFilters,
                           showDeviations: propShowDeviations
                       }) => {
     const [clickLoading, setClickLoading] = useState(new Set());
@@ -36,19 +36,11 @@ export const Table = ({
             : (propEditMode || false);
     }, [propEditMode]);
 
-    const showFilters = useMemo(() => {
-        return typeof window !== 'undefined' && window.VirtualizedTableState
-            ? window.VirtualizedTableState.showFilters
-            : (propShowFilters || false);
-    }, [propShowFilters]);
-
-    const showDeviations = useMemo(() => {
-        return typeof window !== 'undefined' && window.VirtualizedTableState
-            ? window.VirtualizedTableState.showDeviations
-            : (propShowDeviations || false);
-    }, [propShowDeviations]);
-
-    const hasGlobalHandlers = useGlobalClickHandlers();
+    // const showFilters = useMemo(() => {
+    //     return typeof window !== 'undefined' && window.VirtualizedTableState
+    //         ? window.VirtualizedTableState.showFilters
+    //         : (propShowFilters || false);
+    // }, [propShowFilters]);
 
     useEffect(() => {
         let isMounted = true;
@@ -92,12 +84,9 @@ export const Table = ({
         };
     }, [colorTheme]);
 
-    // Функция для фильтрации узлов по типу
     const filterNodesByType = useCallback((nodes, allowedTypes) => {
         return nodes.reduce((filtered, node) => {
-            // Проверяем тип узла
             if (!allowedTypes.includes(node.type)) {
-                // Если тип не разрешен, пропускаем этот узел, но проверяем его детей
                 if (node.children && node.children.length > 0) {
                     const filteredChildren = filterNodesByType(node.children, allowedTypes);
                     filtered.push(...filteredChildren);
@@ -105,7 +94,6 @@ export const Table = ({
                 return filtered;
             }
 
-            // Если тип разрешен, включаем узел с отфильтрованными детьми
             const filteredChildren = node.children && node.children.length > 0
                 ? filterNodesByType(node.children, allowedTypes)
                 : [];
@@ -119,10 +107,8 @@ export const Table = ({
         }, []);
     }, []);
 
-    // Структура полного дерева (для внутренней логики)
     const fullTreeStructure = useMemo(() => {
         if (!headersData || !headersData.headers || !Array.isArray(headersData.headers)) {
-            console.warn('[Table] Некорректные данные заголовков:', headersData);
             return { tree: [], maxDepth: 1, leafNodes: [], nodesMap: new Map() };
         }
 
@@ -191,13 +177,10 @@ export const Table = ({
         };
     }, [fullTreeStructure, filterNodesByType]);
 
-    // Структура дерева для фильтров (все типы: NODE, ASSEMBLE, COMPONENT)
     const filterTreeStructure = useMemo(() => {
-        // Для фильтров используем полное дерево без фильтрации
         return fullTreeStructure;
     }, [fullTreeStructure]);
 
-    // Хуки для управления состоянием
     const tableLogic = useTableLogic({
         scrollBatchSize,
         dataProvider,
@@ -216,19 +199,13 @@ export const Table = ({
         }
     }, [tableLogic.refreshViewport]);
 
-    // Объединенная логика видимости - одна для фильтров и заголовков
-    // Используем filterTreeStructure для получения всех узлов
     const filterNodeVisibilityLogic = useNodeVisibility(filterTreeStructure);
-
-    // Дополнительная логика видимости для заголовков на основе отфильтрованного дерева
     const nodeVisibilityLogic = useNodeVisibility(treeStructure);
 
-    // Синхронизация: берем видимость из фильтров для заголовков (кроме COMPONENT)
     const syncedNodeVisibility = useMemo(() => {
         const synced = { ...nodeVisibilityLogic.nodeVisibility };
         Object.keys(filterNodeVisibilityLogic.nodeVisibility).forEach(nodeId => {
             const node = filterTreeStructure.nodesMap.get(nodeId);
-            // Синхронизируем только NODE и ASSEMBLE типы (не COMPONENT)
             if (node && node.type !== 'COMPONENT') {
                 synced[nodeId] = filterNodeVisibilityLogic.nodeVisibility[nodeId];
             }
@@ -236,7 +213,77 @@ export const Table = ({
         return synced;
     }, [nodeVisibilityLogic.nodeVisibility, filterNodeVisibilityLogic.nodeVisibility, filterTreeStructure.nodesMap]);
 
-    // Функция проверки видимости узла
+    useEffect(() => {
+        const handleStateChange = (event) => {
+            if (event.detail.property === 'visibleColumns') {
+                const columnIds = event.detail.value;
+                console.log('[Table] visibleColumns changed:', columnIds);
+
+                if (columnIds.length === 0) {
+                    // Пустой массив - показать все (восстановить дефолтное состояние)
+                    filterTreeStructure.nodesMap.forEach((node, nodeId) => {
+                        const shouldBeVisible = node.type !== 'COMPONENT'; // COMPONENT скрыты по умолчанию
+                        filterNodeVisibilityLogic.setNodeVisibilityDirect(nodeId, shouldBeVisible);
+                    });
+                } else {
+                    // Непустой массив - показать ТОЛЬКО указанные ID
+                    filterTreeStructure.nodesMap.forEach((node, nodeId) => {
+                        const shouldBeVisible = columnIds.includes(nodeId);
+                        console.log(`[Table] Setting ${nodeId} visibility to ${shouldBeVisible}`);
+                        filterNodeVisibilityLogic.setNodeVisibilityDirect(nodeId, shouldBeVisible);
+                    });
+                }
+
+                // Принудительно обновляем viewport
+                if (tableLogic.refreshViewport) {
+                    setTimeout(() => {
+                        tableLogic.refreshViewport();
+                    }, 50);
+                }
+
+                console.log('[Table] Visibility updated');
+            }
+        };
+
+        window.addEventListener('virtualized-table-state-change', handleStateChange);
+        return () => window.removeEventListener('virtualized-table-state-change', handleStateChange);
+    }, [filterNodeVisibilityLogic, filterTreeStructure, tableLogic]);
+
+    const [childrenData, setChildrenData] = useState(
+        (typeof window !== 'undefined' && window.VirtualizedTableState)
+            ? window.VirtualizedTableState.childrenData
+            : []
+    );
+
+    useEffect(() => {
+        const handleStateChange = (event) => {
+            if (event.detail.property === 'childrenData') {
+                setChildrenData(event.detail.value);
+            }
+        };
+
+        window.addEventListener('virtualized-table-state-change', handleStateChange);
+        return () => window.removeEventListener('virtualized-table-state-change', handleStateChange);
+    }, []);
+
+    const [showDeviations, setShowDeviations] = useState(
+        (typeof window !== 'undefined' && window.VirtualizedTableState)
+            ? window.VirtualizedTableState.showDeviations
+            : (propShowDeviations || false)
+    );
+
+    useEffect(() => {
+        const handleStateChange = (event) => {
+            if (event.detail.property === 'showDeviations') {
+                console.log('[Table] showDeviations changed to:', event.detail.value);
+                setShowDeviations(event.detail.value);
+            }
+        };
+
+        window.addEventListener('virtualized-table-state-change', handleStateChange);
+        return () => window.removeEventListener('virtualized-table-state-change', handleStateChange);
+    }, []);
+
     const isNodeFullyVisible = useCallback((nodeId) => {
         let currentNodeId = nodeId;
         while (currentNodeId) {
@@ -248,96 +295,11 @@ export const Table = ({
         return true;
     }, [syncedNodeVisibility, treeStructure.nodesMap]);
 
-    // Видимые листовые узлы для ячеек
     const visibleLeafNodes = useMemo(() => {
         return treeStructure.leafNodes.filter(node => isNodeFullyVisible(node.id));
     }, [treeStructure.leafNodes, isNodeFullyVisible]);
 
-    // Управление видимостью children элементов
     const childrenVisibilityLogic = useChildrenVisibility(treeStructure, tableLogic.processedCache);
-
-    // Создаем обертку для toggleNodeVisibility фильтров, которая также управляет children visibility
-    const toggleFilterNodeVisibility = useCallback((nodeId) => {
-        // Сохраняем текущее состояние перед переключением
-        const wasVisible = filterNodeVisibilityLogic.nodeVisibility[nodeId];
-
-        // Переключаем видимость узла в фильтрах
-        filterNodeVisibilityLogic.toggleNodeVisibility(nodeId);
-
-        // Новое состояние - обратное предыдущему
-        const isNowVisible = !wasVisible;
-
-        const node = filterTreeStructure.nodesMap.get(nodeId);
-        console.log(`[ToggleFilter] Toggling node ${nodeId}, type: ${node?.type}, isNowVisible: ${isNowVisible}`);
-
-        // Для COMPONENT элементов - управляем children в ячейках
-        if (node && node.type === 'COMPONENT') {
-            console.log(`[ToggleFilter] Toggling COMPONENT: ${nodeId}, isNowVisible: ${isNowVisible}`);
-
-            // Нужно найти все COMPONENT узлы внутри этого узла (детали компонента)
-            const findComponentNodes = (n) => {
-                const results = [];
-                if (n.type === 'COMPONENT' && n.id !== nodeId) {
-                    results.push(n.id);
-                }
-                if (n.children) {
-                    n.children.forEach(child => {
-                        results.push(...findComponentNodes(child));
-                    });
-                }
-                return results;
-            };
-
-            const componentNodes = findComponentNodes(node);
-            console.log(`[ToggleFilter] Found component child nodes:`, componentNodes);
-
-            // Находим родительскую станцию (ASSEMBLE тип)
-            const findParentStation = (nodeId) => {
-                let currentNodeId = nodeId;
-                while (currentNodeId) {
-                    const currentNode = filterTreeStructure.nodesMap.get(currentNodeId);
-                    if (currentNode && currentNode.type === 'ASSEMBLE') {
-                        return currentNode;
-                    }
-                    currentNodeId = currentNode?.parentId;
-                }
-                return null;
-            };
-
-            const stationNode = findParentStation(nodeId);
-
-            if (stationNode) {
-                console.log(`[ToggleFilter] Found parent station: ${stationNode.id}`);
-
-                // Находим children элементы этой станции в ячейках
-                const stationChildren = childrenVisibilityLogic.childrenVisibility[stationNode.id] || {};
-                console.log(`[ToggleFilter] Station ${stationNode.id} has children in visibility:`, Object.keys(stationChildren));
-
-                // Проверяем все листовые узлы дочерних COMPONENT элементов
-                componentNodes.forEach(componentNodeId => {
-                    const componentNode = filterTreeStructure.nodesMap.get(componentNodeId);
-                    if (componentNode && !componentNode.children || componentNode.children.length === 0) {
-                        // Это листовой узел (деталь компонента)
-                        // Проверяем есть ли в children станции
-                        if (stationChildren[componentNodeId] !== undefined) {
-                            const childIsVisible = stationChildren[componentNodeId];
-                            console.log(`[ToggleFilter] Component detail ${componentNodeId} visibility: ${childIsVisible}`);
-
-                            // Если компонент теперь видим и children скрыт - включаем
-                            // Если компонент теперь невидим и children видим - выключаем
-                            if (isNowVisible && !childIsVisible) {
-                                console.log(`[ToggleFilter] Enabling child ${componentNodeId} for station ${stationNode.id}`);
-                                childrenVisibilityLogic.toggleChildrenVisibility(stationNode.id, componentNodeId);
-                            } else if (!isNowVisible && childIsVisible) {
-                                console.log(`[ToggleFilter] Disabling child ${componentNodeId} for station ${stationNode.id}`);
-                                childrenVisibilityLogic.toggleChildrenVisibility(stationNode.id, componentNodeId);
-                            }
-                        }
-                    }
-                });
-            }
-        }
-    }, [filterNodeVisibilityLogic, filterTreeStructure, childrenVisibilityLogic]);
 
     // Drag & Drop функциональность
     const dragDropHandlers = useDragAndDrop(editMode, onCellMove);
@@ -355,7 +317,6 @@ export const Table = ({
 
         return hasProps || hasGlobal;
     }, [onCellDoubleClick, debug]);
-
 
     // обработчик двойного клика
     const handleCellDoubleClick = useCallback(async (date, nodeId, cellValue, event) => {
@@ -396,15 +357,23 @@ export const Table = ({
     }, [clickLoading, onCellDoubleClick, tableLogic.processedCache]);
 
     const getCellValue = useCallback((processedRow, nodeId) => {
-        if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
+        if (!processedRow) {
             return '-';
+        }
+
+        if (!processedRow.elements || Object.keys(processedRow.elements).length === 0) {
+            return '-';
+        }
+
+        if (!processedRow.elements[nodeId]) {
+            return null;
         }
 
         const element = processedRow.elements[nodeId];
         const value = element.status;
 
         if (value === null || value === undefined || value === '') {
-            return '-';
+            return null;
         }
 
         return value;
@@ -455,17 +424,61 @@ export const Table = ({
         return element.displayed === false ? 0 : (element.colspan || 1);
     }, []);
 
-    // Функция получения children элементов ячейки
     const getCellChildren = useCallback((processedRow, nodeId) => {
         if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
             return [];
         }
 
         const element = processedRow.elements[nodeId];
-        return element.children || [];
+        const children = element.children || [];
+        const result = [];
+
+        children.forEach(child => {
+            if (child.subChildren && Array.isArray(child.subChildren)) {
+                child.subChildren.forEach(subChild => {
+                    result.push({
+                        ...subChild,
+                        parentId: child.id
+                    });
+                });
+            } else if (child.value) {
+                result.push({
+                    id: child.id,
+                    value: child.value,
+                    name: child.name,
+                    parentId: null
+                });
+            }
+        });
+
+        return result;
     }, []);
 
-    // Функция получения operating элементов ячейки
+    const getCellShift = useCallback((processedRow, nodeId) => {
+        if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
+            return [];
+        }
+        const element = processedRow.elements[nodeId];
+        const children = element.children || [];
+        const shiftChild = children.find(c => c.id === 'shift');
+        if (!shiftChild) {
+            return [];
+        }
+
+        if (shiftChild.subChildren && Array.isArray(shiftChild.subChildren) && shiftChild.subChildren.length > 0) {
+            return shiftChild.subChildren;
+        }
+
+        if (shiftChild.value) {
+            return [{
+                id: 'shift',
+                value: shiftChild.value,
+                name: shiftChild.name
+            }];
+        }
+        return [];
+    }, []);
+
     const getCellOperating = useCallback((processedRow, nodeId) => {
         if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
             return [];
@@ -475,77 +488,35 @@ export const Table = ({
         return element.operating || [];
     }, []);
 
-    // Функция получения shift элементов ячейки
-    const getCellShift = useCallback((processedRow, nodeId) => {
-        if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
-            return [];
-        }
-
-        const element = processedRow.elements[nodeId];
-        return element.shift || [];
-    }, []);
-
-    // Функция получения видимых children элементов
     const getVisibleCellChildren = useCallback((processedRow, nodeId) => {
         const children = getCellChildren(processedRow, nodeId);
-        const visibleChildrenFromToggle = childrenVisibilityLogic.getVisibleChildren(nodeId);
+        if (children.length === 0) return [];
 
-        // Получаем видимые COMPONENT узлы из фильтра
-        const visibleComponentsFromFilter = Object.keys(filterNodeVisibilityLogic.nodeVisibility)
-            .filter(id => filterNodeVisibilityLogic.nodeVisibility[id] === true);
-
-        // Показываем child если:
-        // 1. Он явно включен через чекбокс (visibleChildrenFromToggle)
-        // 2. ИЛИ его ID виден в filterNodeVisibilityLogic (COMPONENT из фильтра)
         const result = children.filter(child => {
-            const fromToggle = visibleChildrenFromToggle.includes(child.id);
-            const fromFilter = visibleComponentsFromFilter.includes(child.id);
-            return fromToggle || fromFilter;
-        });
-
-        // Логируем только если есть children
-        if (children.length > 0) {
-            console.log(`[Children] nodeId: ${nodeId}, total: ${children.length}, visible: ${result.length}`);
-            children.forEach(child => {
-                const fromToggle = visibleChildrenFromToggle.includes(child.id);
-                const fromFilter = visibleComponentsFromFilter.includes(child.id);
-                console.log(`  - ${child.id}: toggle=${fromToggle}, filter=${fromFilter}, show=${fromToggle || fromFilter}`);
-            });
-        }
-
-        return result;
-    }, [getCellChildren, childrenVisibilityLogic, filterNodeVisibilityLogic]);
-
-    // Слушаем изменения глобального состояния
-    useEffect(() => {
-        const handleStateChange = (event) => {
-            // Форсируем перерендер если изменилось состояние
-            if (event.detail.property === 'editMode' || event.detail.property === 'showFilters') {
-                // React автоматически перерендерит при изменении useMemo зависимостей
+            if (child.parentId === 'shift' || child.id === 'shift') {
+                return false;
             }
-        };
 
-        if (typeof window !== 'undefined') {
-            window.addEventListener('virtualized-table-state-change', handleStateChange);
+            if (childrenData.length === 0) {
+                return false;
+            }
 
-            return () => {
-                window.removeEventListener('virtualized-table-state-change', handleStateChange);
-            };
-        }
-    }, []);
+            const isIncluded = childrenData.includes(child.id);
+            return isIncluded;
+        });
+        return result;
+    }, [getCellChildren, childrenData]);
 
-    // Проверяем, есть ли хотя бы один видимый children элемент
+
     const hasAnyVisibleChildren = useMemo(() => {
         return Object.values(childrenVisibilityLogic.childrenVisibility).some(nodeChildren =>
             Object.values(nodeChildren).some(isVisible => isVisible)
         );
     }, [childrenVisibilityLogic.childrenVisibility]);
 
-    // Вычисляем видимые даты и отступы для виртуализации
     let startIndex, endIndex, visibleDates, paddingTop, paddingBottom;
 
     if (hasAnyVisibleChildren) {
-        // Динамический режим: пересчитываем viewport с учетом реальной высоты строк
         const calculateDynamicViewport = () => {
             if (!tableLogic.containerRef.current) {
                 return { start: 0, end: Math.min(tableLogic.dates.length, 20) };
@@ -559,7 +530,6 @@ export const Table = ({
                 return { start: 0, end: Math.min(tableLogic.dates.length, 20) };
             }
 
-            // Находим индекс строки, которая находится в верхней части viewport
             let visibleStart = 0;
             let currentPosition = 0;
 
@@ -696,25 +666,24 @@ export const Table = ({
 
     return (
         <>
-            <FilterModal
-                isOpen={showFilters}
-                onClose={() => {
-                    if (typeof window !== 'undefined' && window.VirtualizedTableAPI) {
-                        window.VirtualizedTableAPI.setShowFilters(false);
-                    }
-                }}
-                filteredTree={filterNodeVisibilityLogic.filteredTree}
-                nodeVisibility={filterNodeVisibilityLogic.nodeVisibility}
-                expandedNodes={filterNodeVisibilityLogic.expandedNodes}
-                searchTerm={filterNodeVisibilityLogic.searchTerm}
-                setSearchTerm={filterNodeVisibilityLogic.setSearchTerm}
-                toggleNodeVisibility={toggleFilterNodeVisibility}
-                toggleNodeExpansion={filterNodeVisibilityLogic.toggleNodeExpansion}
-                childrenVisibility={childrenVisibilityLogic.childrenVisibility}
-                toggleChildrenVisibility={childrenVisibilityLogic.toggleChildrenVisibility}
-            />
+            {/*<FilterModal*/}
+            {/*    isOpen={showFilters}*/}
+            {/*    onClose={() => {*/}
+            {/*        if (typeof window !== 'undefined' && window.VirtualizedTableAPI) {*/}
+            {/*            window.VirtualizedTableAPI.setShowFilters(false);*/}
+            {/*        }*/}
+            {/*    }}*/}
+            {/*    filteredTree={filterNodeVisibilityLogic.filteredTree}*/}
+            {/*    nodeVisibility={filterNodeVisibilityLogic.nodeVisibility}*/}
+            {/*    expandedNodes={filterNodeVisibilityLogic.expandedNodes}*/}
+            {/*    searchTerm={filterNodeVisibilityLogic.searchTerm}*/}
+            {/*    setSearchTerm={filterNodeVisibilityLogic.setSearchTerm}*/}
+            {/*    toggleNodeVisibility={toggleFilterNodeVisibility}*/}
+            {/*    toggleNodeExpansion={filterNodeVisibilityLogic.toggleNodeExpansion}*/}
+            {/*    childrenVisibility={childrenVisibilityLogic.childrenVisibility}*/}
+            {/*    toggleChildrenVisibility={childrenVisibilityLogic.toggleChildrenVisibility}*/}
+            {/*/>*/}
 
-            {/* Контейнер таблицы */}
             <div
                 ref={tableLogic.containerRef}
                 className="vt-container"
@@ -722,7 +691,6 @@ export const Table = ({
                 onScroll={tableLogic.handleScroll}
             >
                 <table className="vt-table">
-                    {/* Заголовок таблицы */}
                     <TableHeader
                         treeStructure={treeStructure}
                         nodeVisibility={syncedNodeVisibility}
@@ -735,9 +703,7 @@ export const Table = ({
                         }}
                     />
 
-                    {/* Тело таблицы */}
                     <tbody>
-                    {/* Верхний отступ для виртуализации */}
                     {paddingTop > 0 && (
                         <tr className="vt-spacer-row" style={{ height: paddingTop }}>
                             <td className="vt-spacer-cell" colSpan={visibleLeafNodes.length + 1} />
@@ -750,14 +716,12 @@ export const Table = ({
                         const rowDate = parseDateString(dateString);
                         const isPastDate = rowDate.getTime() < tableLogic.today.getTime();
 
-                        // Проверяем, есть ли в этой строке children элементы
                         const hasChildrenInRow = nodeVisibilityLogic.visibleLeafNodes.some(leafNode => {
                             if (!shouldDisplayCell(processedRow, leafNode.id)) return false;
                             const cellChildren = processedRow ? getVisibleCellChildren(processedRow, leafNode.id) : [];
                             return cellChildren.length > 0;
                         });
 
-                        // Логика высоты: 40px по умолчанию, 120px (3 * 40px) если есть children элементы
                         const currentRowHeight = hasChildrenInRow ? 120 : 40;
 
                         return (
@@ -766,7 +730,6 @@ export const Table = ({
                                 className="vt-row"
                                 style={{ height: `${currentRowHeight}px`, backgroundColor: activeColorTheme("DATE", isPastDate) }}
                             >
-                                {/* Колонка с датой */}
                                 <td className="vt-cell-date" style={{ color: isPastDate ? '#666' : 'inherit' }}>
                                     {dateString}
                                 </td>
@@ -776,7 +739,12 @@ export const Table = ({
                                         return null;
                                     }
 
-                                    const cellValue = processedRow ? getCellValue(processedRow, leafNode.id) : '-';
+                                    const cellValue = processedRow ? getCellValue(processedRow, leafNode.id) : null;
+
+                                    if (cellValue === null) {
+                                        return null;
+                                    }
+
                                     const cellColor = processedRow ? getCellColor(processedRow, leafNode.id) : null;
                                     const isDraggable = processedRow ? getCellDraggable(processedRow, leafNode.id) : false;
                                     const cellRowspan = processedRow ? getCellRowspan(processedRow, leafNode.id) : 1;
@@ -815,23 +783,17 @@ export const Table = ({
                                             <div className="vt-cell__content">
                                                 <div className="vt-cell__value">
                                                     {cellValue}
-                                                    {showDeviations && cellOperating.map((op, idx) => (
-                                                        <React.Fragment key={`op-${idx}`}>
-                                                            <br/>
-                                                            {op.value}
-                                                        </React.Fragment>
-                                                    ))}
-                                                    {showDeviations && cellShift.map((sh, idx) => (
-                                                        <React.Fragment key={`sh-${idx}`}>
-                                                            <br/>
-                                                            {sh.value}
-                                                        </React.Fragment>
-                                                    ))}
                                                 </div>
+                                                {showDeviations && cellShift.map((sh, idx) => (
+                                                    <div key={`shift-${idx}`}>
+                                                        <br/>
+                                                        {sh.value}
+                                                    </div>
+                                                ))}
                                                 {!isLoading && cellChildren.length > 0 && (
                                                     <div className="vt-cell__children">
                                                         {cellChildren.map((child, index) => (
-                                                            <div key={child.id} style={{ color: getContrastTextColor(cellColor)}} className="vt-cell__child">
+                                                            <div key={child.id} className="vt-cell__child">
                                                                 {child.value}
                                                             </div>
                                                         ))}
@@ -845,7 +807,6 @@ export const Table = ({
                         );
                     })}
 
-                    {/* Нижний отступ для виртуализации */}
                     {paddingBottom > 0 && (
                         <tr className="vt-spacer-row" style={{ height: paddingBottom }}>
                             <td className="vt-spacer-cell" colSpan={visibleLeafNodes.length + 1} />

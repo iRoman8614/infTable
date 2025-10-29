@@ -18,7 +18,7 @@ const TableWrapper = ({
 
     // Состояния синхронизированные с глобальным объектом
     const [editMode, setEditMode] = useState(false);
-    const [showFilters, setShowFilters] = useState(false);
+    // const [showFilters, setShowFilters] = useState(false);
 
     // Refs для кэширования провайдеров
     const dataProviderRef = useRef(null);
@@ -199,7 +199,7 @@ const TableWrapper = ({
             if (typeof window !== 'undefined' && window.VirtualizedTableState) {
                 const state = window.VirtualizedTableState;
                 setEditMode(prev => prev !== state.editMode ? state.editMode : prev);
-                setShowFilters(prev => prev !== state.showFilters ? state.showFilters : prev);
+                // setShowFilters(prev => prev !== state.showFilters ? state.showFilters : prev);
             }
         };
 
@@ -341,7 +341,7 @@ const TableWrapper = ({
             onCellDoubleClick={handleCellDoubleClick}
             onCellMove={handleCellMove}
             editMode={editMode}
-            showFilters={showFilters}
+            // showFilters={showFilters}
         />
     );
 };
@@ -388,7 +388,7 @@ if (typeof window !== 'undefined') {
             console.warn('[WebTableWrapper] VirtualizedTableState не найден, создаем базовый объект');
             window.VirtualizedTableState = {
                 editMode: false,
-                showFilters: false,
+                //showFilters: false,
                 onCellDoubleClick: null,
                 onCellMove: null,
                 onDataLoad: null,
@@ -407,9 +407,9 @@ if (typeof window !== 'undefined') {
                 setEditMode: (enabled) => {
                     window.VirtualizedTableState.editMode = enabled;
                 },
-                setShowFilters: (show) => {
-                    window.VirtualizedTableState.showFilters = show;
-                },
+                // setShowFilters: (show) => {
+                //     window.VirtualizedTableState.showFilters = show;
+                // },
                 getState: () => ({ ...window.VirtualizedTableState }),
                 setOnCellDoubleClick: (handler) => {
                     window.VirtualizedTableState.onCellDoubleClick = handler;

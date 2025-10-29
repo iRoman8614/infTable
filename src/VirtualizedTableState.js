@@ -9,8 +9,10 @@ window.VirtualizedTableState = {
     headerProvider: null,
     // Режимы отображения
     editMode: false,
-    showFilters: false,
+    // showFilters: false,
     showDeviations: false,
+    visibleColumns: [],
+    childrenData: [],
     // Обработчики событий
     onCellDoubleClick: null,
     onCellMove: null,
@@ -110,21 +112,21 @@ window.VirtualizedTableAPI = {
         this._dispatchStateEvent('editMode', enabled);
     },
 
-    /**
-     * Установить видимость панели фильтров
-     * @param {boolean} show - показать/скрыть панель фильтров
-     */
-    setShowFilters(show) {
-        if (typeof show !== 'boolean') {
-            console.warn('[VirtualizedTableAPI] setShowFilters expects boolean');
-            return;
-        }
-
-        window.VirtualizedTableState.showFilters = show;
-        console.log('[VirtualizedTableAPI] Show filters set to:', show);
-
-        this._dispatchStateEvent('showFilters', show);
-    },
+    // /**
+    //  * Установить видимость панели фильтров
+    //  * @param {boolean} show - показать/скрыть панель фильтров
+    //  */
+    // setShowFilters(show) {
+    //     if (typeof show !== 'boolean') {
+    //         console.warn('[VirtualizedTableAPI] setShowFilters expects boolean');
+    //         return;
+    //     }
+    //
+    //     window.VirtualizedTableState.showFilters = show;
+    //     console.log('[VirtualizedTableAPI] Show filters set to:', show);
+    //
+    //     this._dispatchStateEvent('showFilters', show);
+    // },
 
     /**
      * Установить видимость отклонений (operating и shift)
@@ -173,6 +175,58 @@ window.VirtualizedTableAPI = {
         console.log('[VirtualizedTableAPI] Table state reset complete');
 
         this._dispatchStateEvent('reset', true);
+    },
+
+    /**
+     * Установить видимые столбцы по ID
+     * @param {Array<string>} columnIds - массив ID столбцов для отображения
+     *   Пустой массив [] = показать все столбцы
+     *   Непустой массив ['id1', 'id2'] = показать только указанные
+     */
+    setVisibleColumns(columnIds) {
+        if (!Array.isArray(columnIds)) {
+            console.warn('[VirtualizedTableAPI] setVisibleColumns expects array');
+            return;
+        }
+
+        window.VirtualizedTableState.visibleColumns = columnIds;
+        console.log('[VirtualizedTableAPI] Visible columns set to:', columnIds.length === 0 ? 'ALL' : columnIds);
+
+        this._dispatchStateEvent('visibleColumns', columnIds);
+    },
+
+    /**
+     * Установить видимые children по ID
+     * @param {Array<string>} childrenIds - массив ID children для отображения
+     *   Пустой массив [] = не показывать children (кроме shift если showDeviations=true)
+     *   Непустой массив ['id1', 'id2'] = показать только указанные
+     */
+    setChildrenData(childrenIds) {
+        if (!Array.isArray(childrenIds)) {
+            console.warn('[VirtualizedTableAPI] setChildrenData expects array');
+            return;
+        }
+
+        window.VirtualizedTableState.childrenData = childrenIds;
+        console.log('[VirtualizedTableAPI] Children data set to:', childrenIds.length === 0 ? 'NONE' : childrenIds);
+
+        this._dispatchStateEvent('childrenData', childrenIds);
+    },
+
+    /**
+     * Получить текущие видимые children
+     * @returns {Array<string>} массив ID видимых children
+     */
+    getChildrenData() {
+        return window.VirtualizedTableState.childrenData || [];
+    },
+
+    /**
+     * Получить текущие видимые столбцы
+     * @returns {Array<string>} массив ID видимых столбцов
+     */
+    getVisibleColumns() {
+        return window.VirtualizedTableState.visibleColumns || [];
     },
 
     /**

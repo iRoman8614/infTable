@@ -103,6 +103,23 @@ export const useNodeVisibility = (treeStructure) => {
         });
     }, [getAllDescendants, treeStructure.nodesMap]);
 
+
+    const setNodeVisibilityDirect = useCallback((nodeId, visible) => {
+        setNodeVisibility(prev => {
+            const newVisibility = { ...prev };
+            newVisibility[nodeId] = visible;
+
+            if (!visible) {
+                const descendants = getAllDescendants(nodeId);
+                descendants.forEach(id => {
+                    newVisibility[id] = false;
+                });
+            }
+
+            return newVisibility;
+        });
+    }, [getAllDescendants]);
+
     // Переключение развертывания узла
     const toggleNodeExpansion = useCallback((nodeId) => {
         setExpandedNodes(prev => {
@@ -164,6 +181,7 @@ export const useNodeVisibility = (treeStructure) => {
 
         // Функции
         toggleNodeVisibility,
+        setNodeVisibilityDirect,
         toggleNodeExpansion,
         toggleAllChildrenVisibility,
         isNodeFullyVisible,
