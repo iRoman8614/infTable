@@ -1,4 +1,4 @@
-import React, {useState, useMemo, useCallback, useEffect} from 'react';
+import React, {useState, useMemo, useCallback, useEffect, useRef} from 'react';
 import { TableHeader } from './components/TableHeader.jsx';
 // import { FilterModal } from './components/FilterModal.jsx';
 import { useTableLogic } from './hooks/useTableLogic.js';
@@ -59,7 +59,9 @@ export const Table = ({
                 window.VirtualizedTableState._initialized = false;
                 window.VirtualizedTableState._loading = false;
                 window.VirtualizedTableState._error = null;
-                delete window.VirtualizedTableState.refreshTableViewport;
+                if (window.VirtualizedTableState.refreshTableViewport) {
+                    delete window.VirtualizedTableState.refreshTableViewport;
+                }
             }
         };
     }, []);
@@ -181,23 +183,80 @@ export const Table = ({
         return fullTreeStructure;
     }, [fullTreeStructure]);
 
-    const tableLogic = useTableLogic({
-        scrollBatchSize,
-        dataProvider,
-        onDataLoad,
-        onError,
-        treeStructure
-    });
+    const [childrenData, setChildrenData] = useState(
+        (typeof window !== 'undefined' && window.VirtualizedTableState)
+            ? window.VirtualizedTableState.childrenData
+            : []
+    );
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && tableLogic.refreshViewport) {
-            window.refreshTableViewport = tableLogic.refreshViewport;
+        const handleStateChange = (event) => {
+            if (event.detail.property === 'childrenData') {
+                setChildrenData(event.detail.value);
+            }
+        };
 
-            return () => {
-                delete window.refreshTableViewport;
-            };
+        window.addEventListener('virtualized-table-state-change', handleStateChange);
+        return () => window.removeEventListener('virtualized-table-state-change', handleStateChange);
+    }, []);
+
+    const getCellChildren = useCallback((processedRow, nodeId) => {
+        if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
+            return [];
         }
-    }, [tableLogic.refreshViewport]);
+
+        const element = processedRow.elements[nodeId];
+        const children = element.children || [];
+        const result = [];
+
+        children.forEach(child => {
+            if (child.subChildren && Array.isArray(child.subChildren)) {
+                child.subChildren.forEach(subChild => {
+                    result.push({
+                        ...subChild,
+                        parentId: child.id
+                    });
+                });
+            } else if (child.value) {
+                result.push({
+                    id: child.id,
+                    value: child.value,
+                    name: child.name,
+                    parentId: null
+                });
+            }
+        });
+
+        return result;
+    }, []);
+
+    const getVisibleCellChildren = useCallback((processedRow, nodeId) => {
+        const children = getCellChildren(processedRow, nodeId);
+        if (children.length === 0) return [];
+
+        const result = children.filter(child => {
+            if (child.parentId === 'shift' || child.id === 'shift') {
+                return false;
+            }
+
+            if (childrenData.length === 0) {
+                return false;
+            }
+
+            const isIncluded = childrenData.includes(child.id);
+            return isIncluded;
+        });
+        return result;
+    }, [getCellChildren, childrenData]);
+
+    const shouldDisplayCell = useCallback((processedRow, nodeId) => {
+        if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
+            return true; // Показываем пустую ячейку если нет данных
+        }
+
+        const element = processedRow.elements[nodeId];
+        return element.displayed !== false; // Отображаем если не явно скрыта
+    }, []);
 
     const filterNodeVisibilityLogic = useNodeVisibility(filterTreeStructure);
     const nodeVisibilityLogic = useNodeVisibility(treeStructure);
@@ -212,6 +271,36 @@ export const Table = ({
         });
         return synced;
     }, [nodeVisibilityLogic.nodeVisibility, filterNodeVisibilityLogic.nodeVisibility, filterTreeStructure.nodesMap]);
+
+    // Управление унифицированной высотой строк
+    const BASE_ROW_HEIGHT = 40;
+    const EXTENDED_ROW_HEIGHT = 120;
+    const [uniformRowHeight, setUniformRowHeight] = useState(BASE_ROW_HEIGHT);
+    const prevUniformRowHeightRef = useRef(BASE_ROW_HEIGHT);
+    const lastHeightChangeRef = useRef(0);
+
+    const tableLogic = useTableLogic({
+        scrollBatchSize,
+        dataProvider,
+        onDataLoad,
+        onError,
+        treeStructure,
+        getVisibleCellChildren,
+        shouldDisplayCell,
+        uniformRowHeight
+    });
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && tableLogic.refreshViewport && window.VirtualizedTableState) {
+            window.VirtualizedTableState.refreshTableViewport = tableLogic.refreshViewport;
+
+            return () => {
+                if (window.VirtualizedTableState) {
+                    delete window.VirtualizedTableState.refreshTableViewport;
+                }
+            };
+        }
+    }, [tableLogic.refreshViewport]);
 
     useEffect(() => {
         const handleStateChange = (event) => {
@@ -249,22 +338,22 @@ export const Table = ({
         return () => window.removeEventListener('virtualized-table-state-change', handleStateChange);
     }, [filterNodeVisibilityLogic, filterTreeStructure, tableLogic]);
 
-    const [childrenData, setChildrenData] = useState(
-        (typeof window !== 'undefined' && window.VirtualizedTableState)
-            ? window.VirtualizedTableState.childrenData
-            : []
-    );
-
-    useEffect(() => {
-        const handleStateChange = (event) => {
-            if (event.detail.property === 'childrenData') {
-                setChildrenData(event.detail.value);
-            }
-        };
-
-        window.addEventListener('virtualized-table-state-change', handleStateChange);
-        return () => window.removeEventListener('virtualized-table-state-change', handleStateChange);
-    }, []);
+    // const [childrenData, setChildrenData] = useState(
+    //     (typeof window !== 'undefined' && window.VirtualizedTableState)
+    //         ? window.VirtualizedTableState.childrenData
+    //         : []
+    // );
+    //
+    // useEffect(() => {
+    //     const handleStateChange = (event) => {
+    //         if (event.detail.property === 'childrenData') {
+    //             setChildrenData(event.detail.value);
+    //         }
+    //     };
+    //
+    //     window.addEventListener('virtualized-table-state-change', handleStateChange);
+    //     return () => window.removeEventListener('virtualized-table-state-change', handleStateChange);
+    // }, []);
 
     const [showDeviations, setShowDeviations] = useState(
         (typeof window !== 'undefined' && window.VirtualizedTableState)
@@ -298,6 +387,65 @@ export const Table = ({
     const visibleLeafNodes = useMemo(() => {
         return treeStructure.leafNodes.filter(node => isNodeFullyVisible(node.id));
     }, [treeStructure.leafNodes, isNodeFullyVisible]);
+
+    // Функция для определения наличия children в строке
+    const hasChildrenInRow = useCallback((dateString, processedRow) => {
+        if (!processedRow || !processedRow.elements) {
+            return false;
+        }
+        return visibleLeafNodes.some(leafNode => {
+            if (!shouldDisplayCell(processedRow, leafNode.id)) return false;
+            const cellChildren = getVisibleCellChildren(processedRow, leafNode.id);
+            return cellChildren && cellChildren.length > 0;
+        });
+    }, [visibleLeafNodes, getVisibleCellChildren, shouldDisplayCell]);
+
+    // Определяем должна ли высота строк быть расширенной для всего вьюпорта
+    const hasExtendedRowsInViewport = useMemo(() => {
+        if (!tableLogic.dates || tableLogic.dates.length === 0) return false;
+        
+        // Проверяем весь диапазон данных для правильного определения наличия children
+        const checkRange = tableLogic.dates.length;
+        for (let i = 0; i < checkRange; i++) {
+            const dateString = tableLogic.dates[i];
+            const processedRow = tableLogic.processedCache[dateString];
+            if (!processedRow) continue;
+            if (hasChildrenInRow(dateString, processedRow)) {
+                console.log('[hasExtendedRowsInViewport] Found children in row:', dateString);
+                return true;
+            }
+        }
+        console.log('[hasExtendedRowsInViewport] No children found in any row');
+        return false;
+    }, [tableLogic.dates, tableLogic.processedCache, hasChildrenInRow, getVisibleCellChildren, childrenData]);
+
+    // Обновление высоты только при изменении флага hasExtendedRowsInViewport
+    useEffect(() => {
+        const now = Date.now();
+        const nextHeight = hasExtendedRowsInViewport ? EXTENDED_ROW_HEIGHT : BASE_ROW_HEIGHT;
+        
+        // Debounce: если высота менялась недавно (<100ms), пропускаем
+        if (prevUniformRowHeightRef.current === nextHeight) {
+            return;
+        }
+        
+        if (now - lastHeightChangeRef.current < 100) {
+            // Откладываем изменение на 100ms
+            const timeoutId = setTimeout(() => {
+                if (prevUniformRowHeightRef.current !== nextHeight) {
+                    prevUniformRowHeightRef.current = nextHeight;
+                    lastHeightChangeRef.current = Date.now();
+                    setUniformRowHeight(nextHeight);
+                }
+            }, 100);
+            
+            return () => clearTimeout(timeoutId);
+        }
+        
+        prevUniformRowHeightRef.current = nextHeight;
+        lastHeightChangeRef.current = now;
+        setUniformRowHeight(nextHeight);
+    }, [hasExtendedRowsInViewport, BASE_ROW_HEIGHT, EXTENDED_ROW_HEIGHT]);
 
     const childrenVisibilityLogic = useChildrenVisibility(treeStructure, tableLogic.processedCache);
 
@@ -395,14 +543,14 @@ export const Table = ({
     }, []);
 
     // Функция проверки нужно ли отображать ячейку (учитывает rowspan и colspan)
-    const shouldDisplayCell = useCallback((processedRow, nodeId) => {
-        if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
-            return true; // Показываем пустую ячейку если нет данных
-        }
-
-        const element = processedRow.elements[nodeId];
-        return element.displayed !== false; // Отображаем если не явно скрыта
-    }, []);
+    // const shouldDisplayCell = useCallback((processedRow, nodeId) => {
+    //     if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
+    //         return true; // Показываем пустую ячейку если нет данных
+    //     }
+    //
+    //     const element = processedRow.elements[nodeId];
+    //     return element.displayed !== false; // Отображаем если не явно скрыта
+    // }, []);
 
     // Функция получения rowspan
     const getCellRowspan = useCallback((processedRow, nodeId) => {
@@ -424,35 +572,35 @@ export const Table = ({
         return element.displayed === false ? 0 : (element.colspan || 1);
     }, []);
 
-    const getCellChildren = useCallback((processedRow, nodeId) => {
-        if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
-            return [];
-        }
-
-        const element = processedRow.elements[nodeId];
-        const children = element.children || [];
-        const result = [];
-
-        children.forEach(child => {
-            if (child.subChildren && Array.isArray(child.subChildren)) {
-                child.subChildren.forEach(subChild => {
-                    result.push({
-                        ...subChild,
-                        parentId: child.id
-                    });
-                });
-            } else if (child.value) {
-                result.push({
-                    id: child.id,
-                    value: child.value,
-                    name: child.name,
-                    parentId: null
-                });
-            }
-        });
-
-        return result;
-    }, []);
+    // const getCellChildren = useCallback((processedRow, nodeId) => {
+    //     if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
+    //         return [];
+    //     }
+    //
+    //     const element = processedRow.elements[nodeId];
+    //     const children = element.children || [];
+    //     const result = [];
+    //
+    //     children.forEach(child => {
+    //         if (child.subChildren && Array.isArray(child.subChildren)) {
+    //             child.subChildren.forEach(subChild => {
+    //                 result.push({
+    //                     ...subChild,
+    //                     parentId: child.id
+    //                 });
+    //             });
+    //         } else if (child.value) {
+    //             result.push({
+    //                 id: child.id,
+    //                 value: child.value,
+    //                 name: child.name,
+    //                 parentId: null
+    //             });
+    //         }
+    //     });
+    //
+    //     return result;
+    // }, []);
 
     const getCellShift = useCallback((processedRow, nodeId) => {
         if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
@@ -488,25 +636,24 @@ export const Table = ({
         return element.operating || [];
     }, []);
 
-    const getVisibleCellChildren = useCallback((processedRow, nodeId) => {
-        const children = getCellChildren(processedRow, nodeId);
-        if (children.length === 0) return [];
-
-        const result = children.filter(child => {
-            if (child.parentId === 'shift' || child.id === 'shift') {
-                return false;
-            }
-
-            if (childrenData.length === 0) {
-                return false;
-            }
-
-            const isIncluded = childrenData.includes(child.id);
-            return isIncluded;
-        });
-        return result;
-    }, [getCellChildren, childrenData]);
-
+    // const getVisibleCellChildren = useCallback((processedRow, nodeId) => {
+    //     const children = getCellChildren(processedRow, nodeId);
+    //     if (children.length === 0) return [];
+    //
+    //     const result = children.filter(child => {
+    //         if (child.parentId === 'shift' || child.id === 'shift') {
+    //             return false;
+    //         }
+    //
+    //         if (childrenData.length === 0) {
+    //             return false;
+    //         }
+    //
+    //         const isIncluded = childrenData.includes(child.id);
+    //         return isIncluded;
+    //     });
+    //     return result;
+    // }, [getCellChildren, childrenData]);
 
     const hasAnyVisibleChildren = useMemo(() => {
         return Object.values(childrenVisibilityLogic.childrenVisibility).some(nodeChildren =>
@@ -514,132 +661,13 @@ export const Table = ({
         );
     }, [childrenVisibilityLogic.childrenVisibility]);
 
-    let startIndex, endIndex, visibleDates, paddingTop, paddingBottom;
-
-    if (hasAnyVisibleChildren) {
-        const calculateDynamicViewport = () => {
-            if (!tableLogic.containerRef.current) {
-                return { start: 0, end: Math.min(tableLogic.dates.length, 20) };
-            }
-
-            const container = tableLogic.containerRef.current;
-            const scrollTop = container.scrollTop;
-            const containerHeight = container.clientHeight;
-
-            if (!containerHeight || containerHeight === 0 || tableLogic.dates.length === 0) {
-                return { start: 0, end: Math.min(tableLogic.dates.length, 20) };
-            }
-
-            let visibleStart = 0;
-            let currentPosition = 0;
-
-            for (let i = 0; i < tableLogic.dates.length; i++) {
-                const dateString = tableLogic.dates[i];
-                const processedRow = tableLogic.processedCache[dateString];
-
-                let rowHeight = 40; // Высота по умолчанию
-                if (processedRow) {
-                    const hasChildrenInRow = visibleLeafNodes.some(leafNode => {
-                        if (!shouldDisplayCell(processedRow, leafNode.id)) return false;
-                        const cellChildren = getVisibleCellChildren(processedRow, leafNode.id);
-                        return cellChildren.length > 0;
-                    });
-                    rowHeight = hasChildrenInRow ? 120 : 40;
-                }
-
-                if (currentPosition + rowHeight > scrollTop) {
-                    visibleStart = i;
-                    break;
-                }
-                currentPosition += rowHeight;
-            }
-
-            // Находим индекс строки, которая находится в нижней части viewport
-            let visibleEnd = tableLogic.dates.length;
-            currentPosition = 0;
-
-            for (let i = 0; i < tableLogic.dates.length; i++) {
-                const dateString = tableLogic.dates[i];
-                const processedRow = tableLogic.processedCache[dateString];
-
-                let rowHeight = 40; // Высота по умолчанию
-                if (processedRow) {
-                    const hasChildrenInRow = visibleLeafNodes.some(leafNode => {
-                        if (!shouldDisplayCell(processedRow, leafNode.id)) return false;
-                        const cellChildren = getVisibleCellChildren(processedRow, leafNode.id);
-                        return cellChildren.length > 0;
-                    });
-                    rowHeight = hasChildrenInRow ? 120 : 40;
-                }
-
-                if (currentPosition > scrollTop + containerHeight) {
-                    visibleEnd = i;
-                    break;
-                }
-                currentPosition += rowHeight;
-            }
-
-            const bufferSize = 10;
-            const start = Math.max(0, visibleStart - bufferSize);
-            const end = Math.min(tableLogic.dates.length, visibleEnd + bufferSize);
-
-            return { start, end };
-        };
-
-        const dynamicViewport = calculateDynamicViewport();
-        startIndex = dynamicViewport.start;
-        endIndex = dynamicViewport.end;
-        visibleDates = tableLogic.dates.slice(startIndex, endIndex);
-
-        // Вычисляем динамические отступы
-        let topPadding = 0;
-        let bottomPadding = 0;
-
-        // paddingTop - сумма высот всех строк до startIndex
-        for (let i = 0; i < startIndex; i++) {
-            const dateString = tableLogic.dates[i];
-            const processedRow = tableLogic.processedCache[dateString];
-
-            if (processedRow) {
-                const hasChildrenInRow = nodeVisibilityLogic.visibleLeafNodes.some(leafNode => {
-                    if (!shouldDisplayCell(processedRow, leafNode.id)) return false;
-                    const cellChildren = getVisibleCellChildren(processedRow, leafNode.id);
-                    return cellChildren.length > 0;
-                });
-                topPadding += hasChildrenInRow ? 120 : 40;
-            } else {
-                topPadding += 40;
-            }
-        }
-
-        // paddingBottom - сумма высот всех строк после endIndex
-        for (let i = endIndex; i < tableLogic.dates.length; i++) {
-            const dateString = tableLogic.dates[i];
-            const processedRow = tableLogic.processedCache[dateString];
-
-            if (processedRow) {
-                const hasChildrenInRow = nodeVisibilityLogic.visibleLeafNodes.some(leafNode => {
-                    if (!shouldDisplayCell(processedRow, leafNode.id)) return false;
-                    const cellChildren = getVisibleCellChildren(processedRow, leafNode.id);
-                    return cellChildren.length > 0;
-                });
-                bottomPadding += hasChildrenInRow ? 120 : 40;
-            } else {
-                bottomPadding += 40;
-            }
-        }
-
-        paddingTop = topPadding;
-        paddingBottom = bottomPadding;
-    } else {
-        // Статический режим: используем стандартную логику
-        const { start, end } = tableLogic.visibleRange;
-        startIndex = start;
-        endIndex = end;
-        visibleDates = tableLogic.dates.slice(startIndex, endIndex);
-        paddingTop = startIndex * tableLogic.rowHeight;
-        paddingBottom = Math.max(0, (tableLogic.dates.length - endIndex) * tableLogic.rowHeight);
-    }
+    // Используем унифицированную высоту вместо динамического расчета
+    const { start, end } = tableLogic.visibleRange;
+    const startIndex = start;
+    const endIndex = end;
+    const visibleDates = tableLogic.dates.slice(startIndex, endIndex);
+    const paddingTop = startIndex * uniformRowHeight;
+    const paddingBottom = Math.max(0, (tableLogic.dates.length - endIndex) * uniformRowHeight);
 
     // Отображение ошибки
     if (headersError) {
@@ -716,19 +744,11 @@ export const Table = ({
                         const rowDate = parseDateString(dateString);
                         const isPastDate = rowDate.getTime() < tableLogic.today.getTime();
 
-                        const hasChildrenInRow = nodeVisibilityLogic.visibleLeafNodes.some(leafNode => {
-                            if (!shouldDisplayCell(processedRow, leafNode.id)) return false;
-                            const cellChildren = processedRow ? getVisibleCellChildren(processedRow, leafNode.id) : [];
-                            return cellChildren.length > 0;
-                        });
-
-                        const currentRowHeight = hasChildrenInRow ? 120 : 40;
-
                         return (
                             <tr
                                 key={`${dateString}-${startIndex + index}`}
                                 className="vt-row"
-                                style={{ height: `${currentRowHeight}px`, backgroundColor: activeColorTheme("DATE", isPastDate) }}
+                                style={{ height: `${uniformRowHeight}px`, backgroundColor: activeColorTheme("DATE", isPastDate) }}
                             >
                                 <td className="vt-cell-date" style={{ color: isPastDate ? '#666' : 'inherit' }}>
                                     {dateString}
@@ -786,7 +806,6 @@ export const Table = ({
                                                 </div>
                                                 {showDeviations && cellShift.map((sh, idx) => (
                                                     <div key={`shift-${idx}`}>
-                                                        <br/>
                                                         {sh.value}
                                                     </div>
                                                 ))}

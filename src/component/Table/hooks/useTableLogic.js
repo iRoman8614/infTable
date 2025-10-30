@@ -64,24 +64,24 @@ const processTableData = (dataArray, leafNodes) => {
                         const nextNodeIndex = nodeIndex + i;
                         if (nextNodeIndex < leafNodeIds.length) {
                             const nextNodeId = leafNodeIds[nextNodeIndex];
-                                    elements[nextNodeId] = {
-                                        status: value,
-                                        color: color,
-                                        draggable: draggable,
-                                        displayed: false,
-                                        rowspan: 1,
-                                        colspan: 1,
-                                        parentColspan: {
-                                            parentNodeId: leafNodeId,
-                                            parentNodeIndex: nodeIndex,
-                                            colspanIndex: i
-                                        },
-                                        children: columnData.children || [],
-                                        operating: columnData.operating || [],
-                                        shift: columnData.shift || [],
-                                        nodeId: nextNodeId,
-                                        headerId: nextNodeId
-                                    };
+                            elements[nextNodeId] = {
+                                status: value,
+                                color: color,
+                                draggable: draggable,
+                                displayed: false,
+                                rowspan: 1,
+                                colspan: 1,
+                                parentColspan: {
+                                    parentNodeId: leafNodeId,
+                                    parentNodeIndex: nodeIndex,
+                                    colspanIndex: i
+                                },
+                                children: columnData.children || [],
+                                operating: columnData.operating || [],
+                                shift: columnData.shift || [],
+                                nodeId: nextNodeId,
+                                headerId: nextNodeId
+                            };
                         }
                     }
                 }
@@ -260,10 +260,13 @@ if (typeof window !== 'undefined') {
 
 export const useTableLogic = ({
                                   scrollBatchSize,
-                                  dataProvider = null,
-                                  onDataLoad = null,
-                                  onError = null,
-                                  treeStructure
+                                  dataProvider,
+                                  onDataLoad,
+                                  onError,
+                                  treeStructure,
+                                  getVisibleCellChildren,
+                                  shouldDisplayCell,
+                                  uniformRowHeight = 40
                               }) => {
     const [dates, setDates] = useState([]);
     const [visibleData, setVisibleData] = useState({});
@@ -280,6 +283,8 @@ export const useTableLogic = ({
     const lastScrollTime = useRef(0);
     const lastScrollTop = useRef(0);
     const isScrollCompensating = useRef(false);
+    const prevUniformRowHeightRef = useRef(uniformRowHeight);
+    const lastRecalcTimestamp = useRef(0);
 
     const batchSize = useMemo(() => {
         const numSize = Number(scrollBatchSize);
@@ -289,9 +294,14 @@ export const useTableLogic = ({
         return finalSize;
     }, [scrollBatchSize]);
 
-    const bufferSize = 10;
+    const bufferSize = 15;
+    const BASE_ROW_HEIGHT = 40;
+    const EXTENDED_ROW_HEIGHT = 120;
 
-    const rowHeight = 40;
+    // Функция для получения высоты строки (использует переданную высоту)
+    const getRowHeight = useCallback((dateString) => {
+        return uniformRowHeight;
+    }, [uniformRowHeight]);
 
     const today = useMemo(() => {
         const date = new Date();
@@ -306,13 +316,38 @@ export const useTableLogic = ({
         }
 
         const safeScroll = Number.isFinite(scrollTop) && !isNaN(scrollTop) ? scrollTop : 0;
-        const visibleStart = Math.floor(safeScroll / rowHeight);
-        const visibleEnd = Math.ceil((safeScroll + containerHeight) / rowHeight);
+
+        // Находим первую видимую строку с учетом унифицированных высот
+        let visibleStart = 0;
+        let accumulatedHeight = 0;
+        for (let i = 0; i < dates.length; i++) {
+            const rowHeight = getRowHeight(dates[i]);
+            if (accumulatedHeight + rowHeight > safeScroll) {
+                visibleStart = i;
+                break;
+            }
+            accumulatedHeight += rowHeight;
+        }
+
+        // Находим последнюю видимую строку с учетом унифицированных высот
+        let visibleEnd = visibleStart;
+        accumulatedHeight = 0;
+        for (let i = visibleStart; i < dates.length; i++) {
+            accumulatedHeight += getRowHeight(dates[i]);
+            if (accumulatedHeight >= containerHeight) {
+                visibleEnd = i + 1;
+                break;
+            }
+        }
+        if (visibleEnd === visibleStart) {
+            visibleEnd = dates.length;
+        }
+
         const start = Math.max(0, visibleStart - bufferSize);
         const end = Math.min(dates.length, visibleEnd + bufferSize);
 
         return { start, end };
-    }, [scrollTop, containerHeight, dates.length, rowHeight, bufferSize, batchSize]);
+    }, [scrollTop, containerHeight, dates, getRowHeight, bufferSize, batchSize]);
 
     const visibleRange = useMemo(() => {
         return calculateExtendedRange(baseVisibleRange, dates, visibleData);
@@ -331,132 +366,7 @@ export const useTableLogic = ({
         return initialDates;
     }, [today, batchSize]);
 
-    // const loadBatch = useCallback(async (startDate, direction, batchSize) => {
-    //     const batchKey = `${startDate}:${direction}:${batchSize}`;
-    //
-    //     if (fetchingPromises.current[batchKey]) {
-    //         return fetchingPromises.current[batchKey];
-    //     }
-    //
-    //     const promise = (async () => {
-    //         try {
-    //             const currentDataProvider = typeof window !== 'undefined' && window.VirtualizedTableState?.dataProvider
-    //                 ? window.VirtualizedTableState.dataProvider
-    //                 : dataProvider;
-    //
-    //             if (!currentDataProvider) {
-    //                 throw new Error('dataProvider не установлен');
-    //             }
-    //
-    //             let jsonString;
-    //             if (currentDataProvider.constructor.name === 'AsyncFunction') {
-    //                 jsonString = await currentDataProvider(startDate, direction, batchSize);
-    //             } else {
-    //                 jsonString = currentDataProvider(startDate, direction, batchSize);
-    //             }
-    //
-    //             if (typeof jsonString !== 'string') {
-    //                 throw new Error('Провайдер данных должен возвращать JSON-строку');
-    //             }
-    //
-    //             let batchData;
-    //             try {
-    //                 batchData = JSON.parse(jsonString);
-    //             } catch (parseError) {
-    //                 throw new Error(`Ошибка парсинга JSON: ${parseError.message}`);
-    //             }
-    //
-    //             let dataArray;
-    //             if (batchData && batchData["data"] && Array.isArray(batchData["data"])) {
-    //                 dataArray = batchData["data"];
-    //             } else if (batchData && batchData.data && Array.isArray(batchData.data)) {
-    //                 dataArray = batchData.data;
-    //             } else {
-    //                 throw new Error('Провайдер данных вернул некорректный формат');
-    //             }
-    //
-    //             if (dataArray.length > 0 && treeStructure.leafNodes) {
-    //                 const processed = processTableData(dataArray, treeStructure.leafNodes);
-    //
-    //                 setVisibleData(prev => {
-    //                     const updated = { ...prev };
-    //                     Object.keys(processed.processedData).forEach(date => {
-    //                         updated[date] = processed.processedData[date];
-    //                     });
-    //                     return updated;
-    //                 });
-    //
-    //                 setActiveRowspans(prev => {
-    //                     const updated = new Map(prev);
-    //                     processed.activeRowspans.forEach((value, key) => {
-    //                         updated.set(key, value);
-    //                     });
-    //                     return updated;
-    //                 });
-    //
-    //                 setActiveColspans(prev => {
-    //                     const updated = new Map(prev);
-    //                     processed.activeColspans?.forEach((value, key) => {
-    //                         updated.set(key, value);
-    //                     });
-    //                     return updated;
-    //                 });
-    //             }
-    //
-    //             setLoadingDates(prev => {
-    //                 const updated = new Set(prev);
-    //                 dataArray.forEach(dayData => updated.delete(dayData.date));
-    //                 return updated;
-    //             });
-    //
-    //             const currentOnDataLoad = typeof window !== 'undefined' && window.VirtualizedTableState?.onDataLoad
-    //                 ? window.VirtualizedTableState.onDataLoad
-    //                 : onDataLoad;
-    //
-    //             if (currentOnDataLoad) {
-    //                 currentOnDataLoad(dataArray, startDate, batchSize);
-    //             }
-    //
-    //             return { data: dataArray };
-    //
-    //         } catch (error) {
-    //             console.error('[loadBatch] Ошибка загрузки данных:', error);
-    //
-    //             setLoadingDates(prev => {
-    //                 const updated = new Set(prev);
-    //                 const startDateObj = parseDateString(startDate);
-    //                 for (let i = 0; i < batchSize; i++) {
-    //                     const date = new Date(startDateObj);
-    //                     if (direction === 'up') {
-    //                         date.setUTCDate(startDateObj.getUTCDate() - i);
-    //                     } else {
-    //                         date.setUTCDate(startDateObj.getUTCDate() + i);
-    //                     }
-    //                     updated.delete(formatDate(date));
-    //                 }
-    //                 return updated;
-    //             });
-    //
-    //             const currentOnError = typeof window !== 'undefined' && window.VirtualizedTableState?.onError
-    //                 ? window.VirtualizedTableState.onError
-    //                 : onError;
-    //
-    //             if (currentOnError) {
-    //                 currentOnError(error, { startDate, direction, batchSize });
-    //             }
-    //             throw error;
-    //         }
-    //     })();
-    //
-    //     promise.finally(() => {
-    //         delete fetchingPromises.current[batchKey];
-    //     });
-    //
-    //     fetchingPromises.current[batchKey] = promise;
-    //     return promise;
-    // }, [dataProvider, onDataLoad, onError, treeStructure.leafNodes]);
-
-    const loadBatch = useCallback(async (startDate, direction, batchSize) => {
+    const loadBatch = useCallback(async (startDate, direction, batchSize, forceRefresh = false) => {
         let adjustedStartDate = startDate;
 
         if (direction === 'down') {
@@ -469,11 +379,19 @@ export const useTableLogic = ({
             adjustedStartDate = formatDate(dateObj);
         }
 
-        console.log(`[loadBatch] Скорректирован startDate: ${startDate} → ${adjustedStartDate}, направление: ${direction}`);
+        console.log(`[loadBatch] Скорректирован startDate: ${startDate} → ${adjustedStartDate}, направление: ${direction}, forceRefresh: ${forceRefresh}`);
 
         const batchKey = `${adjustedStartDate}:${direction}:${batchSize}`;
 
-        if (fetchingPromises.current[batchKey]) {
+        // Если forceRefresh, очищаем кеш перед началом загрузки
+        if (forceRefresh && fetchingPromises.current[batchKey]) {
+            console.log('[loadBatch] Очистка кеша для', batchKey);
+            delete fetchingPromises.current[batchKey];
+        }
+        
+        // Проверяем кеш только если не forceRefresh
+        if (!forceRefresh && fetchingPromises.current[batchKey]) {
+            console.log('[loadBatch] Использование кешированного промиса для', batchKey);
             return fetchingPromises.current[batchKey];
         }
 
@@ -513,6 +431,9 @@ export const useTableLogic = ({
                 } else {
                     throw new Error('Провайдер данных вернул некорректный формат');
                 }
+                
+                console.log('[loadBatch] Данные загружены:', dataArray.length, 'элементов', forceRefresh ? '(forced refresh)' : '');
+                console.log('[loadBatch] Первый элемент:', dataArray[0]);
 
                 if (dataArray.length > 0 && treeStructure.leafNodes) {
                     const processed = processTableData(dataArray, treeStructure.leafNodes);
@@ -521,6 +442,9 @@ export const useTableLogic = ({
                         const updated = { ...prev };
                         Object.keys(processed.processedData).forEach(date => {
                             updated[date] = processed.processedData[date];
+                            if (forceRefresh) {
+                                console.log('[loadBatch] Обновлен visibleData для', date, 'значение:', processed.processedData[date].elements);
+                            }
                         });
                         return updated;
                     });
@@ -589,9 +513,11 @@ export const useTableLogic = ({
 
         promise.finally(() => {
             delete fetchingPromises.current[batchKey];
+            console.log('[loadBatch] Промис завершен, удален из кеша:', batchKey);
         });
 
         fetchingPromises.current[batchKey] = promise;
+        console.log('[loadBatch] Промис добавлен в кеш:', batchKey, forceRefresh ? '(force refresh)' : '');
         return promise;
     }, [dataProvider, onDataLoad, onError, treeStructure.leafNodes]);
 
@@ -720,15 +646,32 @@ export const useTableLogic = ({
                 isScrollCompensating.current = true;
 
                 const currentScrollTop = containerRef.current.scrollTop;
-                const currentFirstVisibleIndex = Math.floor(currentScrollTop / rowHeight);
-                const scrollOffset = currentScrollTop % rowHeight;
+
+                // Находим индекс первой видимой строки с учетом динамических высот
+                let currentFirstVisibleIndex = 0;
+                let accumulatedHeight = 0;
+                for (let i = 0; i < dates.length; i++) {
+                    const rowHeight = getRowHeight(dates[i]);
+                    if (accumulatedHeight + rowHeight > currentScrollTop) {
+                        currentFirstVisibleIndex = i;
+                        break;
+                    }
+                    accumulatedHeight += rowHeight;
+                }
+                const scrollOffset = currentScrollTop - accumulatedHeight;
 
                 setDates(prevDates => {
                     const updatedDates = [...newDates, ...prevDates];
 
                     requestAnimationFrame(() => {
                         if (containerRef.current && isScrollCompensating.current) {
-                            const compensatedScrollTop = (currentFirstVisibleIndex + newDates.length) * rowHeight + scrollOffset;
+                            // Рассчитываем компенсированный скролл с учетом динамических высот
+                            let compensatedScrollTop = 0;
+                            for (let i = 0; i < currentFirstVisibleIndex + newDates.length; i++) {
+                                compensatedScrollTop += getRowHeight(updatedDates[i]);
+                            }
+                            compensatedScrollTop += scrollOffset;
+
                             containerRef.current.scrollTop = compensatedScrollTop;
                             setScrollTop(compensatedScrollTop);
 
@@ -746,7 +689,7 @@ export const useTableLogic = ({
         }
 
         await Promise.allSettled(loadPromises);
-    }, [dates, batchSize, rowHeight]);
+    }, [dates, batchSize, BASE_ROW_HEIGHT]);
 
     const handleScrollImmediate = useCallback(async () => {
         if (!containerRef.current || isScrollCompensating.current) return;
@@ -781,7 +724,7 @@ export const useTableLogic = ({
 
         setContainerHeight(newContainerHeight);
 
-        const baseThreshold = rowHeight * bufferSize;
+        const baseThreshold = BASE_ROW_HEIGHT * bufferSize;
         const velocityMultiplier = Math.min(3, 1 + scrollVelocity.current * 2);
         const dynamicThreshold = baseThreshold * velocityMultiplier;
 
@@ -810,7 +753,36 @@ export const useTableLogic = ({
         if (scrollVelocity.current < 0.5) {
             cleanupInvisibleData();
         }
-    }, [dates, extendDates, rowHeight, bufferSize, cleanupInvisibleData]);
+    }, [dates, extendDates, BASE_ROW_HEIGHT, bufferSize, cleanupInvisibleData]);
+
+    // Функция принудительного пересчета вьюпорта при изменении высоты строк
+    const forceViewportRecalc = useCallback(() => {
+        // Запретить повторный пересчет чаще чем раз в 200мс
+        const now = Date.now();
+        if (now - lastRecalcTimestamp.current < 200) {
+            return;
+        }
+        lastRecalcTimestamp.current = now;
+        if (!containerRef.current) return;
+        const container = containerRef.current;
+        // Обновляем размеры контейнера и скролл, чтобы пересчитать индексы
+        const currentHeight = container.clientHeight;
+        const currentScrollTop = container.scrollTop;
+        setContainerHeight(currentHeight);
+        setScrollTop(currentScrollTop);
+        // Немедленно пересчитать пороги, расширить даты и очистить невидимые данные
+        Promise.resolve().then(() => handleScrollImmediate());
+    }, [handleScrollImmediate]);
+
+    // Пересчет viewport при изменении высоты строки
+    useEffect(() => {
+        if (!isInitialized) return;
+        
+        if (prevUniformRowHeightRef.current !== uniformRowHeight) {
+            prevUniformRowHeightRef.current = uniformRowHeight;
+            forceViewportRecalc();
+        }
+    }, [uniformRowHeight, isInitialized, forceViewportRecalc]);
 
     const handleScrollThrottled = useMemo(
         () => smartThrottle(handleScrollImmediate, 8),
@@ -878,7 +850,7 @@ export const useTableLogic = ({
                     });
 
                     const containerHeight = containerRef.current.clientHeight;
-                    const visibleRows = Math.ceil(containerHeight / rowHeight);
+                    const visibleRows = Math.ceil(containerHeight / BASE_ROW_HEIGHT);
                     const initialBatchSize = Math.max(batchSize * 2, visibleRows + bufferSize * 2);
 
                     console.log(`[Init] Загружаем начальные данные: ${initialBatchSize} записей`);
@@ -888,7 +860,11 @@ export const useTableLogic = ({
 
                         setTimeout(() => {
                             if (containerRef.current) {
-                                const targetScroll = todayIndex * rowHeight;
+                                // Рассчитываем targetScroll с учетом реальных высот строк
+                                let targetScroll = 0;
+                                for (let i = 0; i < todayIndex; i++) {
+                                    targetScroll += getRowHeight(initialDates[i]);
+                                }
 
                                 if (!Number.isFinite(targetScroll)) {
                                     console.error('[Init] targetScroll некорректен:', targetScroll);
@@ -931,10 +907,11 @@ export const useTableLogic = ({
         treeStructure.leafNodes.length,
         generateInitialDates,
         today,
-        rowHeight,
+        BASE_ROW_HEIGHT,
         batchSize,
         loadBatch,
         bufferSize,
+        getRowHeight,
     ]);
 
     useEffect(() => {
@@ -947,7 +924,10 @@ export const useTableLogic = ({
         }
     }, [isInitialized, visibleRange, dates.length, loadVisibleData]);
 
-    const processedCache = useMemo(() => visibleData, [visibleData]);
+    const processedCache = useMemo(() => {
+        console.log('[processedCache] Обновление cache, количество элементов:', Object.keys(visibleData).length);
+        return visibleData;
+    }, [visibleData]);
 
     const refreshViewport = useCallback(async () => {
         const { start, end } = visibleRange;
@@ -955,18 +935,22 @@ export const useTableLogic = ({
 
         console.log(`[RefreshViewport] Обновление: ${currentVisibleDates.length} дат`);
 
+        // Сначала помечаем все даты как загружающиеся
+        setLoadingDates(prev => {
+            const updated = new Set(prev);
+            currentVisibleDates.forEach(date => updated.add(date));
+            return updated;
+        });
+
+        // Удаляем старые данные из кеша
+        console.log('[RefreshViewport] Удаление старых данных для дат:', currentVisibleDates);
         setVisibleData(prev => {
             const cleaned = { ...prev };
             currentVisibleDates.forEach(date => {
                 delete cleaned[date];
             });
+            console.log('[RefreshViewport] После удаления осталось элементов:', Object.keys(cleaned).length);
             return cleaned;
-        });
-
-        setLoadingDates(prev => {
-            const updated = new Set(prev);
-            currentVisibleDates.forEach(date => updated.delete(date));
-            return updated;
         });
 
         if (currentVisibleDates.length > 0) {
@@ -976,7 +960,8 @@ export const useTableLogic = ({
             for (let i = 0; i < batchCount; i++) {
                 const batchStartDate = dates[start + (i * batchSize)];
                 if (batchStartDate) {
-                    refreshPromises.push(loadBatch(batchStartDate, 'down', batchSize));
+                    // forceRefresh=true для принудительной перезагрузки данных
+                    refreshPromises.push(loadBatch(batchStartDate, 'down', batchSize, true));
                 }
             }
 
@@ -1017,7 +1002,10 @@ export const useTableLogic = ({
         today,
         containerRef,
         scrollVelocity,
-        rowHeight,
+        rowHeight: BASE_ROW_HEIGHT, // для обратной совместимости
+        BASE_ROW_HEIGHT,
+        EXTENDED_ROW_HEIGHT,
+        getRowHeight,
         bufferSize,
         activeRowspans,
         activeColspans,
