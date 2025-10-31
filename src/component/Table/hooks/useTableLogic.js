@@ -22,7 +22,7 @@ const processTableData = (dataArray, leafNodes) => {
             const columnData = dayData.columns?.find(col => col.headerId === leafNodeId);
 
             if (columnData) {
-                const value = columnData.value || '-';
+                const value = columnData.value;
                 const color = columnData.color || null;
                 const draggable = columnData.draggable === true;
                 const rowspan = columnData.rowspan || 1;
@@ -152,7 +152,7 @@ const processTableData = (dataArray, leafNodes) => {
                             const colspanEnd = prevIndex + prevColumnData.colspan - 1;
                             if (nodeIndex <= colspanEnd) {
                                 elements[leafNodeId] = {
-                                    status: prevColumnData.value || '-',
+                                    status: prevColumnData.value,
                                     color: prevColumnData.color || null,
                                     draggable: prevColumnData.draggable === true,
                                     displayed: false,
@@ -266,7 +266,7 @@ export const useTableLogic = ({
                                   treeStructure,
                                   getVisibleCellChildren,
                                   shouldDisplayCell,
-                                  uniformRowHeight = 40
+                                  dateRange = null
                               }) => {
     const [dates, setDates] = useState([]);
     const [visibleData, setVisibleData] = useState({});
@@ -276,6 +276,13 @@ export const useTableLogic = ({
     const [activeColspans, setActiveColspans] = useState(new Map());
     const [scrollTop, setScrollTop] = useState(0);
     const [containerHeight, setContainerHeight] = useState(0);
+    
+    // Колбек для сброса дат при изменении dateRange
+    const resetDatesCallback = useCallback(() => {
+        console.log('[Init] Сбрасываем даты');
+        setDates([]);
+        setIsInitialized(false);
+    }, []);
 
     const containerRef = useRef(null);
     const fetchingPromises = useRef({});
@@ -283,8 +290,6 @@ export const useTableLogic = ({
     const lastScrollTime = useRef(0);
     const lastScrollTop = useRef(0);
     const isScrollCompensating = useRef(false);
-    const prevUniformRowHeightRef = useRef(uniformRowHeight);
-    const lastRecalcTimestamp = useRef(0);
 
     const batchSize = useMemo(() => {
         const numSize = Number(scrollBatchSize);
@@ -294,14 +299,37 @@ export const useTableLogic = ({
         return finalSize;
     }, [scrollBatchSize]);
 
-    const bufferSize = 15;
+    const bufferSize = 30;
     const BASE_ROW_HEIGHT = 40;
     const EXTENDED_ROW_HEIGHT = 120;
 
-    // Функция для получения высоты строки (использует переданную высоту)
+    // Функция для определения наличия children в строке
+    const hasChildrenInRow = useCallback((dateString, processedRow) => {
+        if (!processedRow || !processedRow.elements || !getVisibleCellChildren || !shouldDisplayCell) {
+            return false;
+        }
+
+        if (!getVisibleCellChildren || !shouldDisplayCell) {
+            return false;
+        }
+
+        return treeStructure.leafNodes.some(leafNode => {
+            if (!shouldDisplayCell(processedRow, leafNode.id)) return false;
+            const cellChildren = getVisibleCellChildren(processedRow, leafNode.id);
+            return cellChildren && cellChildren.length > 0;
+        });
+    }, [getVisibleCellChildren, shouldDisplayCell, treeStructure.leafNodes]);
+
+    // Функция для получения высоты строки
     const getRowHeight = useCallback((dateString) => {
-        return uniformRowHeight;
-    }, [uniformRowHeight]);
+        const processedRow = visibleData[dateString];
+        if (!processedRow) {
+            return BASE_ROW_HEIGHT;
+        }
+
+        const hasChildren = hasChildrenInRow(dateString, processedRow);
+        return hasChildren ? EXTENDED_ROW_HEIGHT : BASE_ROW_HEIGHT;
+    }, [visibleData, hasChildrenInRow, BASE_ROW_HEIGHT, EXTENDED_ROW_HEIGHT]);
 
     const today = useMemo(() => {
         const date = new Date();
@@ -317,7 +345,7 @@ export const useTableLogic = ({
 
         const safeScroll = Number.isFinite(scrollTop) && !isNaN(scrollTop) ? scrollTop : 0;
 
-        // Находим первую видимую строку с учетом унифицированных высот
+        // Находим первую видимую строку с учетом динамических высот
         let visibleStart = 0;
         let accumulatedHeight = 0;
         for (let i = 0; i < dates.length; i++) {
@@ -329,7 +357,7 @@ export const useTableLogic = ({
             accumulatedHeight += rowHeight;
         }
 
-        // Находим последнюю видимую строку с учетом унифицированных высот
+        // Находим последнюю видимую строку с учетом динамических высот
         let visibleEnd = visibleStart;
         accumulatedHeight = 0;
         for (let i = visibleStart; i < dates.length; i++) {
@@ -357,16 +385,58 @@ export const useTableLogic = ({
         const initialDates = [];
         const daysAround = Math.floor(batchSize * 2);
 
+        // Определяем границы для генерации дат
+        let minDate = null;
+        let maxDate = null;
+
+        if (dateRange && dateRange.length === 2) {
+            // Парсим даты из dateRange
+            const parseDateRange = (dateStr) => {
+                if (window.TableUtils?.parseDateString) {
+                    return window.TableUtils.parseDateString(dateStr);
+                }
+                const dateRegexDDMMYYYY = /^\d{2}\.\d{2}\.\d{4}$/;
+                if (dateRegexDDMMYYYY.test(dateStr)) {
+                    const [day, month, year] = dateStr.split('.').map(Number);
+                    return new Date(Date.UTC(year, month - 1, day));
+                }
+                return new Date(dateStr + 'T00:00:00Z');
+            };
+
+            const rangeMinDate = parseDateRange(dateRange[0]);
+            const rangeMaxDate = parseDateRange(dateRange[1]);
+            
+            // Добавляем буфер ±10 дней к границам
+            const dateRangeBuffer = 10;
+            minDate = new Date(rangeMinDate);
+            minDate.setUTCDate(minDate.getUTCDate() - dateRangeBuffer);
+            maxDate = new Date(rangeMaxDate);
+            maxDate.setUTCDate(maxDate.getUTCDate() + dateRangeBuffer);
+            
+            console.log(`[generateInitialDates] Ограниченный режим с буфером ±${dateRangeBuffer} дней: ${formatDate(minDate)} - ${formatDate(maxDate)}`);
+        } else {
+            console.log('[generateInitialDates] Бесконечный режим');
+        }
+
         for (let i = -daysAround; i <= daysAround; i++) {
             const date = new Date(today);
             date.setUTCDate(today.getUTCDate() + i);
+
+            // Проверяем границы если они установлены
+            if (minDate && maxDate) {
+                if (date < minDate || date > maxDate) {
+                    continue; // Пропускаем даты вне диапазона
+                }
+            }
+
             initialDates.push(formatDate(date));
         }
 
+        console.log(`[generateInitialDates] Сгенерировано ${initialDates.length} начальных дат`);
         return initialDates;
-    }, [today, batchSize]);
+    }, [today, batchSize, dateRange]);
 
-    const loadBatch = useCallback(async (startDate, direction, batchSize, forceRefresh = false) => {
+    const loadBatch = useCallback(async (startDate, direction, batchSize) => {
         let adjustedStartDate = startDate;
 
         if (direction === 'down') {
@@ -379,19 +449,11 @@ export const useTableLogic = ({
             adjustedStartDate = formatDate(dateObj);
         }
 
-        console.log(`[loadBatch] Скорректирован startDate: ${startDate} → ${adjustedStartDate}, направление: ${direction}, forceRefresh: ${forceRefresh}`);
+        console.log(`[loadBatch] Скорректирован startDate: ${startDate} → ${adjustedStartDate}, направление: ${direction}`);
 
         const batchKey = `${adjustedStartDate}:${direction}:${batchSize}`;
 
-        // Если forceRefresh, очищаем кеш перед началом загрузки
-        if (forceRefresh && fetchingPromises.current[batchKey]) {
-            console.log('[loadBatch] Очистка кеша для', batchKey);
-            delete fetchingPromises.current[batchKey];
-        }
-        
-        // Проверяем кеш только если не forceRefresh
-        if (!forceRefresh && fetchingPromises.current[batchKey]) {
-            console.log('[loadBatch] Использование кешированного промиса для', batchKey);
+        if (fetchingPromises.current[batchKey]) {
             return fetchingPromises.current[batchKey];
         }
 
@@ -431,9 +493,6 @@ export const useTableLogic = ({
                 } else {
                     throw new Error('Провайдер данных вернул некорректный формат');
                 }
-                
-                console.log('[loadBatch] Данные загружены:', dataArray.length, 'элементов', forceRefresh ? '(forced refresh)' : '');
-                console.log('[loadBatch] Первый элемент:', dataArray[0]);
 
                 if (dataArray.length > 0 && treeStructure.leafNodes) {
                     const processed = processTableData(dataArray, treeStructure.leafNodes);
@@ -442,9 +501,6 @@ export const useTableLogic = ({
                         const updated = { ...prev };
                         Object.keys(processed.processedData).forEach(date => {
                             updated[date] = processed.processedData[date];
-                            if (forceRefresh) {
-                                console.log('[loadBatch] Обновлен visibleData для', date, 'значение:', processed.processedData[date].elements);
-                            }
                         });
                         return updated;
                     });
@@ -513,11 +569,9 @@ export const useTableLogic = ({
 
         promise.finally(() => {
             delete fetchingPromises.current[batchKey];
-            console.log('[loadBatch] Промис завершен, удален из кеша:', batchKey);
         });
 
         fetchingPromises.current[batchKey] = promise;
-        console.log('[loadBatch] Промис добавлен в кеш:', batchKey, forceRefresh ? '(force refresh)' : '');
         return promise;
     }, [dataProvider, onDataLoad, onError, treeStructure.leafNodes]);
 
@@ -612,6 +666,36 @@ export const useTableLogic = ({
     const extendDates = useCallback(async (direction, isPreemptive = false) => {
         const loadPromises = [];
 
+        // Определяем границы для расширения дат
+        let minDate = null;
+        let maxDate = null;
+
+        if (dateRange && dateRange.length === 2) {
+            const parseDateRange = (dateStr) => {
+                if (window.TableUtils?.parseDateString) {
+                    return window.TableUtils.parseDateString(dateStr);
+                }
+                const dateRegexDDMMYYYY = /^\d{2}\.\d{2}\.\d{4}$/;
+                if (dateRegexDDMMYYYY.test(dateStr)) {
+                    const [day, month, year] = dateStr.split('.').map(Number);
+                    return new Date(Date.UTC(year, month - 1, day));
+                }
+                return new Date(dateStr + 'T00:00:00Z');
+            };
+
+            const rangeMinDate = parseDateRange(dateRange[0]);
+            const rangeMaxDate = parseDateRange(dateRange[1]);
+            
+            // Добавляем буфер ±10 дней к границам
+            const dateRangeBuffer = 10;
+            minDate = new Date(rangeMinDate);
+            minDate.setUTCDate(minDate.getUTCDate() - dateRangeBuffer);
+            maxDate = new Date(rangeMaxDate);
+            maxDate.setUTCDate(maxDate.getUTCDate() + dateRangeBuffer);
+            
+            console.log(`[extendDates] dateRange: ${dateRange}, minDate: ${formatDate(minDate)}, maxDate: ${formatDate(maxDate)}, направление: ${direction}`);
+        }
+
         if (direction === 'down') {
             const lastDate = dates[dates.length - 1];
             if (!lastDate) return;
@@ -623,10 +707,19 @@ export const useTableLogic = ({
             for (let i = 1; i <= extendSize; i++) {
                 const date = new Date(lastDateObj);
                 date.setUTCDate(lastDateObj.getUTCDate() + i);
+
+                // Проверяем границу maxDate если она установлена
+                if (maxDate && date > maxDate) {
+                    console.log(`[extendDates] Достигнута верхняя граница ${formatDate(maxDate)}, остановка расширения вниз`);
+                    break;
+                }
+
                 newDates.push(formatDate(date));
             }
 
-            setDates(prev => [...prev, ...newDates]);
+            if (newDates.length > 0) {
+                setDates(prev => [...prev, ...newDates]);
+            }
 
         } else if (direction === 'up') {
             const firstDate = dates[0];
@@ -639,7 +732,19 @@ export const useTableLogic = ({
             for (let i = extendSize; i >= 1; i--) {
                 const date = new Date(firstDateObj);
                 date.setUTCDate(firstDateObj.getUTCDate() - i);
+
+                // Проверяем границу minDate если она установлена
+                if (minDate && date < minDate) {
+                    console.log(`[extendDates] Достигнута нижняя граница ${formatDate(minDate)}, остановка расширения вверх`);
+                    break;
+                }
+
                 newDates.push(formatDate(date));
+            }
+
+            if (newDates.length === 0) {
+                // Нет дат для добавления, выходим
+                return;
             }
 
             if (containerRef.current) {
@@ -689,7 +794,7 @@ export const useTableLogic = ({
         }
 
         await Promise.allSettled(loadPromises);
-    }, [dates, batchSize, BASE_ROW_HEIGHT]);
+    }, [dates, batchSize, BASE_ROW_HEIGHT, dateRange]);
 
     const handleScrollImmediate = useCallback(async () => {
         if (!containerRef.current || isScrollCompensating.current) return;
@@ -755,35 +860,6 @@ export const useTableLogic = ({
         }
     }, [dates, extendDates, BASE_ROW_HEIGHT, bufferSize, cleanupInvisibleData]);
 
-    // Функция принудительного пересчета вьюпорта при изменении высоты строк
-    const forceViewportRecalc = useCallback(() => {
-        // Запретить повторный пересчет чаще чем раз в 200мс
-        const now = Date.now();
-        if (now - lastRecalcTimestamp.current < 200) {
-            return;
-        }
-        lastRecalcTimestamp.current = now;
-        if (!containerRef.current) return;
-        const container = containerRef.current;
-        // Обновляем размеры контейнера и скролл, чтобы пересчитать индексы
-        const currentHeight = container.clientHeight;
-        const currentScrollTop = container.scrollTop;
-        setContainerHeight(currentHeight);
-        setScrollTop(currentScrollTop);
-        // Немедленно пересчитать пороги, расширить даты и очистить невидимые данные
-        Promise.resolve().then(() => handleScrollImmediate());
-    }, [handleScrollImmediate]);
-
-    // Пересчет viewport при изменении высоты строки
-    useEffect(() => {
-        if (!isInitialized) return;
-        
-        if (prevUniformRowHeightRef.current !== uniformRowHeight) {
-            prevUniformRowHeightRef.current = uniformRowHeight;
-            forceViewportRecalc();
-        }
-    }, [uniformRowHeight, isInitialized, forceViewportRecalc]);
-
     const handleScrollThrottled = useMemo(
         () => smartThrottle(handleScrollImmediate, 8),
         [handleScrollImmediate]
@@ -807,7 +883,12 @@ export const useTableLogic = ({
         };
 
         if (typeof window !== 'undefined') {
-            window.resetTableInitialization = cleanup;
+            // Объединяем глобальную функцию с локальным колбеком
+            window.resetTableInitialization = () => {
+                globalInitialized = false;
+                console.log('[Debug] Глобальный флаг инициализации сброшен');
+                resetDatesCallback();
+            };
         }
 
         if (globalInitialized) {
@@ -912,6 +993,7 @@ export const useTableLogic = ({
         loadBatch,
         bufferSize,
         getRowHeight,
+        resetDatesCallback,
     ]);
 
     useEffect(() => {
@@ -924,10 +1006,7 @@ export const useTableLogic = ({
         }
     }, [isInitialized, visibleRange, dates.length, loadVisibleData]);
 
-    const processedCache = useMemo(() => {
-        console.log('[processedCache] Обновление cache, количество элементов:', Object.keys(visibleData).length);
-        return visibleData;
-    }, [visibleData]);
+    const processedCache = useMemo(() => visibleData, [visibleData]);
 
     const refreshViewport = useCallback(async () => {
         const { start, end } = visibleRange;
@@ -935,22 +1014,18 @@ export const useTableLogic = ({
 
         console.log(`[RefreshViewport] Обновление: ${currentVisibleDates.length} дат`);
 
-        // Сначала помечаем все даты как загружающиеся
-        setLoadingDates(prev => {
-            const updated = new Set(prev);
-            currentVisibleDates.forEach(date => updated.add(date));
-            return updated;
-        });
-
-        // Удаляем старые данные из кеша
-        console.log('[RefreshViewport] Удаление старых данных для дат:', currentVisibleDates);
         setVisibleData(prev => {
             const cleaned = { ...prev };
             currentVisibleDates.forEach(date => {
                 delete cleaned[date];
             });
-            console.log('[RefreshViewport] После удаления осталось элементов:', Object.keys(cleaned).length);
             return cleaned;
+        });
+
+        setLoadingDates(prev => {
+            const updated = new Set(prev);
+            currentVisibleDates.forEach(date => updated.delete(date));
+            return updated;
         });
 
         if (currentVisibleDates.length > 0) {
@@ -960,8 +1035,7 @@ export const useTableLogic = ({
             for (let i = 0; i < batchCount; i++) {
                 const batchStartDate = dates[start + (i * batchSize)];
                 if (batchStartDate) {
-                    // forceRefresh=true для принудительной перезагрузки данных
-                    refreshPromises.push(loadBatch(batchStartDate, 'down', batchSize, true));
+                    refreshPromises.push(loadBatch(batchStartDate, 'down', batchSize));
                 }
             }
 
