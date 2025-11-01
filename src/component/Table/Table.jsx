@@ -70,7 +70,7 @@ export const Table = ({
                 window.VirtualizedTableState._initialized = false;
                 window.VirtualizedTableState._loading = false;
                 window.VirtualizedTableState._error = null;
-                delete window.VirtualizedTableState.refreshTableViewport;
+                delete window.VirtualizedTableState.refreshViewport;
             }
         };
     }, []);
@@ -283,9 +283,16 @@ export const Table = ({
     useEffect(() => {
         if (typeof window !== 'undefined' && tableLogic.refreshViewport) {
             window.refreshTableViewport = tableLogic.refreshViewport;
+            
+            if (window.VirtualizedTableState) {
+                window.VirtualizedTableState.refreshViewport = tableLogic.refreshViewport;
+            }
 
             return () => {
                 delete window.refreshTableViewport;
+                if (window.VirtualizedTableState) {
+                    delete window.VirtualizedTableState.refreshViewport;
+                }
             };
         }
     }, [tableLogic.refreshViewport]);

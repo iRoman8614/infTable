@@ -371,7 +371,7 @@ window.VirtualizedTableAPI = {
         window.VirtualizedTableState._loading = false;
         window.VirtualizedTableState._error = null;
 
-        delete window.VirtualizedTableState.refreshTableViewport;
+        delete window.VirtualizedTableState.refreshViewport;
 
         console.log('[VirtualizedTableAPI] Table state reset complete');
 
