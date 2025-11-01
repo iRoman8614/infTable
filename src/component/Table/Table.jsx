@@ -291,6 +291,18 @@ export const Table = ({
         }
     }, [tableLogic.refreshViewport]);
 
+    useEffect(() => {
+        if (typeof window !== 'undefined' && tableLogic.jumpToDate && window.VirtualizedTableState) {
+            window.VirtualizedTableState.jumpToDate = tableLogic.jumpToDate;
+
+            return () => {
+                if (window.VirtualizedTableState) {
+                    delete window.VirtualizedTableState.jumpToDate;
+                }
+            };
+        }
+    }, [tableLogic.jumpToDate]);
+
     const filterNodeVisibilityLogic = useNodeVisibility(filterTreeStructure);
     const nodeVisibilityLogic = useNodeVisibility(treeStructure);
 
@@ -426,7 +438,8 @@ export const Table = ({
                 nodeId,
                 value: cellValue,
                 draggable: getCellDraggable(tableLogic.processedCache[date], nodeId),
-                color: getCellColor(tableLogic.processedCache[date], nodeId)
+                backgroundColor: getCellBackgroundColor(tableLogic.processedCache[date], nodeId),
+                fontColor: getCellFontColor(tableLogic.processedCache[date], nodeId)
             };
 
             console.log('[Table] Cell double-clicked, preparing data:', cellData);
@@ -475,6 +488,17 @@ export const Table = ({
     const getCellColor = useCallback((processedRow, nodeId) => {
         return processedRow?.elements?.[nodeId]?.color || null;
     }, []);
+
+    // Получение цвета фона ячейки из данных
+    const getCellBackgroundColor = useCallback((processedRow, nodeId) => {
+        return processedRow?.elements?.[nodeId]?.backgroundColor || null;
+    }, []);
+
+    // Получение цвета текста ячейки из данных
+    const getCellFontColor = useCallback((processedRow, nodeId) => {
+        return processedRow?.elements?.[nodeId]?.fontColor || null;
+    }, []);
+
 
     // Получение флага draggable из данных
     const getCellDraggable = useCallback((processedRow, nodeId) => {
@@ -787,6 +811,7 @@ export const Table = ({
                         nodeVisibility={syncedNodeVisibility}
                         activeColorTheme={activeColorTheme}
                         allowedTypes={ALLOWED_HEADER_TYPES}
+                        jumpToDate={tableLogic.jumpToDate}
                         onFilterClick={() => {
                             if (typeof window !== 'undefined' && window.VirtualizedTableAPI) {
                                 window.VirtualizedTableAPI.setShowFilters(true);
@@ -836,7 +861,8 @@ export const Table = ({
                                         return null;
                                     }
 
-                                    const cellColor = processedRow ? getCellColor(processedRow, leafNode.id) : null;
+                                    const cellBackgroundColor = processedRow ? getCellBackgroundColor(processedRow, leafNode.id) : null;
+                                    const cellFontColor = processedRow ? getCellFontColor(processedRow, leafNode.id) : null;
                                     const isDraggable = processedRow ? getCellDraggable(processedRow, leafNode.id) : false;
                                     const cellRowspan = processedRow ? getCellRowspan(processedRow, leafNode.id) : 1;
                                     const cellColspan = processedRow ? getCellColspan(processedRow, leafNode.id) : 1;
@@ -849,9 +875,12 @@ export const Table = ({
                                     const dragStyles = dragDropHandlers.getCellDragStyles(
                                         dateString,
                                         leafNode.id,
-                                        cellColor || activeColorTheme(cellValue, isPastDate),
+                                        cellBackgroundColor || activeColorTheme(cellValue, isPastDate),
                                         isDraggable
                                     );
+
+                                    // Определяем итоговый цвет текста
+                                    const finalFontColor = cellFontColor || getContrastTextColor(cellBackgroundColor || activeColorTheme(cellValue, isPastDate));
 
                                     return (
                                         <td
@@ -869,21 +898,25 @@ export const Table = ({
                                             onDragLeave={editMode ? dragDropHandlers.handleDragLeave : undefined}
                                             onDrop={editMode && isDraggable ? (e) => dragDropHandlers.handleDrop(e, dateString, leafNode.id, isDraggable) : undefined}
                                             className="vt-cell"
-                                            style={{ color: getContrastTextColor(cellColor), width: cellColspan > 1 ? `${cellColspan * 50}px` : undefined, ...dragStyles }}
+                                            style={{
+                                                color: finalFontColor,
+                                                width: cellColspan > 1 ? `${cellColspan * 50}px` : undefined,
+                                                ...dragStyles
+                                            }}
                                         >
                                             <div className="vt-cell__content">
                                                 <div className="vt-cell__value">
                                                     {cellValue}
                                                 </div>
                                                 {showDeviations && cellShift.map((sh, idx) => (
-                                                    <div key={`shift-${idx}`}>
+                                                    <div key={`shift-${idx}`} title={sh.name}>
                                                         {sh.value}
                                                     </div>
                                                 ))}
                                                 {!isLoading && cellChildren.length > 0 && (
                                                     <div className="vt-cell__children">
                                                         {cellChildren.map((child, index) => (
-                                                            <div key={child.id} className="vt-cell__child">
+                                                            <div key={child.id} title={child.name} className="vt-cell__child">
                                                                 {child.value}
                                                             </div>
                                                         ))}

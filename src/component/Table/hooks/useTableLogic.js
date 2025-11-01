@@ -23,14 +23,16 @@ const processTableData = (dataArray, leafNodes) => {
 
             if (columnData) {
                 const value = columnData.value;
-                const color = columnData.color || null;
+                const backgroundColor = columnData.backgroundColor || null;
+                const fontColor = columnData.fontColor || null;
                 const draggable = columnData.draggable === true;
                 const rowspan = columnData.rowspan || 1;
                 const colspan = columnData.colspan || 1;
 
                 elements[leafNodeId] = {
                     status: value,
-                    color: color,
+                    backgroundColor: backgroundColor,
+                    fontColor: fontColor,
                     draggable: draggable,
                     displayed: true,
                     rowspan: rowspan,
@@ -50,7 +52,8 @@ const processTableData = (dataArray, leafNodes) => {
                         startIndex: dayIndex,
                         endIndex: dayIndex + rowspan - 1,
                         value: value,
-                        color: color,
+                        backgroundColor: backgroundColor,
+                        fontColor: fontColor,
                         draggable: draggable,
                         colspan: colspan,
                         children: columnData.children || [],
@@ -66,7 +69,8 @@ const processTableData = (dataArray, leafNodes) => {
                             const nextNodeId = leafNodeIds[nextNodeIndex];
                             elements[nextNodeId] = {
                                 status: value,
-                                color: color,
+                                backgroundColor: backgroundColor,
+                                fontColor: fontColor,
                                 draggable: draggable,
                                 displayed: false,
                                 rowspan: 1,
@@ -95,7 +99,8 @@ const processTableData = (dataArray, leafNodes) => {
 
                         elements[leafNodeId] = {
                             status: rowspanInfo.value,
-                            color: rowspanInfo.color,
+                            backgroundColor: rowspanInfo.backgroundColor,
+                            fontColor: rowspanInfo.fontColor,
                             draggable: rowspanInfo.draggable,
                             displayed: false,
                             rowspan: 1,
@@ -115,7 +120,8 @@ const processTableData = (dataArray, leafNodes) => {
                                     const nextNodeId = leafNodeIds[nextNodeIndex];
                                     elements[nextNodeId] = {
                                         status: rowspanInfo.value,
-                                        color: rowspanInfo.color,
+                                        backgroundColor: rowspanInfo.backgroundColor,
+                                        fontColor: rowspanInfo.fontColor,
                                         draggable: rowspanInfo.draggable,
                                         displayed: false,
                                         rowspan: 1,
@@ -153,7 +159,8 @@ const processTableData = (dataArray, leafNodes) => {
                             if (nodeIndex <= colspanEnd) {
                                 elements[leafNodeId] = {
                                     status: prevColumnData.value,
-                                    color: prevColumnData.color || null,
+                                    backgroundColor: prevColumnData.backgroundColor || null,
+                                    fontColor: prevColumnData.fontColor || null,
                                     draggable: prevColumnData.draggable === true,
                                     displayed: false,
                                     rowspan: 1,
@@ -177,8 +184,9 @@ const processTableData = (dataArray, leafNodes) => {
 
                     if (!isUnderColspan) {
                         elements[leafNodeId] = {
-                            status: '-',
-                            color: null,
+                            status: null,
+                            backgroundColor: null,
+                            fontColor: null,
                             draggable: false,
                             displayed: true,
                             rowspan: 1,
@@ -1064,6 +1072,149 @@ export const useTableLogic = ({
         }
     }, [dates.length, visibleData, visibleRange, isInitialized, batchSize]);
 
+    const jumpToDate = useCallback(async (targetDateString) => {
+        console.log(`[jumpToDate] Переход на дату: ${targetDateString}`);
+        
+        // Парсим дату если она в формате DD.MM.YYYY
+        let parsedDate;
+        if (typeof targetDateString === 'string' && window.TableUtils?.parseDateString) {
+            try {
+                const dateRegexDDMMYYYY = /^\d{2}\.\d{2}\.\d{4}$/;
+                if (dateRegexDDMMYYYY.test(targetDateString)) {
+                    parsedDate = window.TableUtils.parseDateString(targetDateString);
+                } else {
+                    parsedDate = new Date(targetDateString + 'T00:00:00Z');
+                }
+            } catch (error) {
+                console.error(`[jumpToDate] Ошибка парсинга даты: ${error}`);
+                return;
+            }
+        } else {
+            console.error('[jumpToDate] targetDateString должен быть строкой в формате DD.MM.YYYY или YYYY-MM-DD');
+            return;
+        }
+        
+        const targetDateFormatted = formatDate(parsedDate);
+        console.log(`[jumpToDate] Форматированная дата: ${targetDateFormatted}`);
+        
+        // Генерируем начальные даты с целевой датой в центре
+        const initialDates = [];
+        const daysAround = Math.floor(batchSize * 2);
+        
+        // Определяем границы для генерации дат
+        let minDate = null;
+        let maxDate = null;
+        
+        if (dateRange && dateRange.length === 2) {
+            const parseDateRange = (dateStr) => {
+                if (window.TableUtils?.parseDateString) {
+                    return window.TableUtils.parseDateString(dateStr);
+                }
+                const dateRegexDDMMYYYY = /^\d{2}\.\d{2}\.\d{4}$/;
+                if (dateRegexDDMMYYYY.test(dateStr)) {
+                    const [day, month, year] = dateStr.split('.').map(Number);
+                    return new Date(Date.UTC(year, month - 1, day));
+                }
+                return new Date(dateStr + 'T00:00:00Z');
+            };
+            
+            const rangeMinDate = parseDateRange(dateRange[0]);
+            const rangeMaxDate = parseDateRange(dateRange[1]);
+            
+            const dateRangeBuffer = 10;
+            minDate = new Date(rangeMinDate);
+            minDate.setUTCDate(minDate.getUTCDate() - dateRangeBuffer);
+            maxDate = new Date(rangeMaxDate);
+            maxDate.setUTCDate(maxDate.getUTCDate() + dateRangeBuffer);
+        }
+        
+        for (let i = -daysAround; i <= daysAround; i++) {
+            const date = new Date(parsedDate);
+            date.setUTCDate(parsedDate.getUTCDate() + i);
+            
+            if (minDate && maxDate) {
+                if (date < minDate || date > maxDate) {
+                    continue;
+                }
+            }
+            
+            initialDates.push(formatDate(date));
+        }
+        
+        console.log(`[jumpToDate] Сгенерировано ${initialDates.length} дат вокруг ${targetDateFormatted}`);
+        
+        // Устанавливаем новые даты
+        setDates(initialDates);
+        setIsInitialized(false);
+        
+        // Находим индекс целевой даты
+        const targetIndex = initialDates.findIndex(date => date === targetDateFormatted);
+        console.log(`[jumpToDate] Индекс целевой даты: ${targetIndex}`);
+        
+        if (targetIndex === -1) {
+            console.error('[jumpToDate] Целевая дата не найдена в сгенерированном диапазоне');
+            return;
+        }
+        
+        // Ждем готовности контейнера
+        await new Promise(resolve => {
+            const checkDimensions = () => {
+                if (containerRef.current?.clientHeight > 0) {
+                    resolve();
+                } else {
+                    requestAnimationFrame(checkDimensions);
+                }
+            };
+            checkDimensions();
+        });
+        
+        const containerHeight = containerRef.current.clientHeight;
+        const visibleRows = Math.ceil(containerHeight / BASE_ROW_HEIGHT);
+        const initialBatchSize = Math.max(batchSize * 2, visibleRows + bufferSize * 2);
+        
+        console.log(`[jumpToDate] Загружаем начальные данные: ${initialBatchSize} записей`);
+        
+        try {
+            await loadBatch(targetDateFormatted, 'down', initialBatchSize);
+            
+            setTimeout(() => {
+                if (containerRef.current) {
+                    // Рассчитываем targetScroll с учетом реальных высот строк
+                    let targetScroll = 0;
+                    for (let i = 0; i < targetIndex; i++) {
+                        targetScroll += getRowHeight(initialDates[i]);
+                    }
+                    
+                    if (!Number.isFinite(targetScroll)) {
+                        console.error('[jumpToDate] targetScroll некорректен:', targetScroll);
+                        return;
+                    }
+                    
+                    containerRef.current.scrollTop = targetScroll;
+                    setContainerHeight(containerHeight);
+                    setScrollTop(targetScroll);
+                    
+                    setTimeout(() => {
+                        setIsInitialized(true);
+                        
+                        if (typeof window !== 'undefined' && window.VirtualizedTableState) {
+                            window.VirtualizedTableState._initialized = true;
+                        }
+                        
+                        console.log('[jumpToDate] Переход на дату завершен успешно');
+                    }, 200);
+                }
+            }, 300);
+        } catch (error) {
+            console.error('[jumpToDate] Ошибка при загрузке:', error);
+            setIsInitialized(true);
+            
+            if (typeof window !== 'undefined' && window.VirtualizedTableState) {
+                window.VirtualizedTableState._error = error.message;
+            }
+        }
+    }, [batchSize, bufferSize, BASE_ROW_HEIGHT, dateRange, loadBatch, getRowHeight]);
+
     return {
         dates,
         processedCache,
@@ -1085,6 +1236,7 @@ export const useTableLogic = ({
         activeColspans,
         handleScroll,
         loadBatch,
-        refreshViewport
+        refreshViewport,
+        jumpToDate
     };
 };

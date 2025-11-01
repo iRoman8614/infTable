@@ -127,8 +127,8 @@
 }
 
 .vt-th-date {
-  padding: 8px;
-  min-width: 100px;
+  padding: 0 8px;
+  min-width: 160px;
   border-right: 1px solid #ddd;
   font-size: 14px;
   font-weight: normal;
@@ -144,9 +144,21 @@
 }
 
 .vt-th-tools {
+  padding: 0 8px;
+}
+
+.vt-th-tool {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.vt-th-input {
+  margin-bottom: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  max-width: 100px;
 }
 
 @keyframes vt-spin {
