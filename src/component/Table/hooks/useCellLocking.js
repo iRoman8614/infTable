@@ -130,7 +130,7 @@ export const useCellLocking = (lockMode, refreshViewport) => {
             document.documentElement.classList.remove('lock-cursor');
         }
 
-        const action = e.button === 0 ? 'lock' : 'unlock';
+        const state = e.button === 0 ? 'true' : 'false';
 
         currentBatch.current.push({
             date,
