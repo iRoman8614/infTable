@@ -482,6 +482,27 @@ const TableWrapper = ({
         window.dispatchEvent(customEvent);
     }, []);
 
+    const handleDatePickerClick = useCallback(() => {
+        console.log('[TableWrapper] Date picker button clicked');
+
+        if (typeof window !== 'undefined' && window.VirtualizedTableState?.onDatePickerClick) {
+            try {
+                console.log('[TableWrapper] DatePicker - вызываем глобальный обработчик');
+                window.VirtualizedTableState.onDatePickerClick();
+            } catch (error) {
+                console.error('Ошибка в VirtualizedTableState.onDatePickerClick:', error);
+            }
+        } else {
+            console.warn('[TableWrapper] VirtualizedTableState.onDatePickerClick не установлен');
+        }
+
+        const customEvent = new CustomEvent('table-date-picker-click', {
+            bubbles: true
+        });
+        window.dispatchEvent(customEvent);
+    }, []);
+
+
     // Обработчик перемещения ячейки - только через VirtualizedTableState
     const handleCellMove = useCallback((moveData) => {
         console.log('[TableWrapper] Ячейка перемещена:', moveData);
@@ -617,6 +638,9 @@ const TableWrapper = ({
         return provider;
     }, [headerProviderName]);
 
+
+    const [lockMode, setLockMode] = useState(false);
+
     // Мемоизированные провайдеры для передачи в Table
     const memoizedDataProvider = useMemo(() => getDataProvider(), [getDataProvider]);
     const memoizedHeaderProvider = useMemo(() => getHeaderProvider(), [getHeaderProvider]);
@@ -627,15 +651,14 @@ const TableWrapper = ({
             if (typeof window !== 'undefined' && window.VirtualizedTableState) {
                 const state = window.VirtualizedTableState;
                 setEditMode(prev => prev !== state.editMode ? state.editMode : prev);
+                setLockMode(prev => prev !== state.lockMode ? state.lockMode : prev); // ← ДОБАВИТЬ
                 setDateRange(prev => {
-                    // Сравниваем массивы, а не ссылки
                     if (prev === state.dateRange) return prev;
                     if (prev === null && state.dateRange === null) return prev;
                     if (prev === null || state.dateRange === null) return state.dateRange;
                     if (prev[0] === state.dateRange[0] && prev[1] === state.dateRange[1]) return prev;
                     return state.dateRange;
                 });
-                // setShowFilters(prev => prev !== state.showFilters ? state.showFilters : prev);
             }
         };
 
@@ -657,9 +680,8 @@ const TableWrapper = ({
         }
     }, []);
 
-    // Инициализация ОДИН РАЗ глобально (не для каждого экземпляра)
     useEffect(() => {
-        // ========== ПРОВЕРКА ГЛОБАЛЬНОЙ ИНИЦИАЛИЗАЦИИ ==========
+
         if (typeof window !== 'undefined' && window.VirtualizedTableState) {
             // Если уже глобально инициализировано, просто используем
             if (window.VirtualizedTableState._initialized) {
@@ -669,9 +691,8 @@ const TableWrapper = ({
             }
         }
 
-        // ========== ЛОКАЛЬНАЯ ИНИЦИАЛИЗАЦИЯ (только если не готов) ==========
         if (isReady) {
-            return; // Уже готов локально
+            return;
         }
 
         let timeoutId = null;
@@ -682,9 +703,7 @@ const TableWrapper = ({
         const tryInitialize = () => {
             attemptCount++;
 
-            // Проверяем еще раз глобальный флаг (может другой экземпляр инициализировал)
             if (window.VirtualizedTableState?._initialized) {
-                console.log('[WebTableWrapper] Провайдеры инициализированы другим экземпляром');
                 setIsReady(true);
                 if (intervalId) clearInterval(intervalId);
                 return;
@@ -694,27 +713,24 @@ const TableWrapper = ({
             const headerProvider = getHeaderProvider();
 
             if (headerProvider) {
-                console.log('[WebTableWrapper] ✅ Провайдеры найдены, инициализируем таблицу');
-
-                // Устанавливаем провайдеры глобально
                 if (typeof window !== 'undefined' && window.VirtualizedTableState) {
                     if (!window.VirtualizedTableState.dataProvider) {
                         window.VirtualizedTableState.dataProvider = dataProvider || emptyProviderRef.current;
-                        console.log('[WebTableWrapper] Глобальный dataProvider установлен');
                     }
                     if (!window.VirtualizedTableState.headerProvider && headerProvider) {
                         window.VirtualizedTableState.headerProvider = headerProvider;
-                        console.log('[WebTableWrapper] Глобальный headerProvider установлен');
                     }
 
-                    // УСТАНАВЛИВАЕМ ГЛОБАЛЬНЫЙ ФЛАГ
+                    if (window.lockProvider && typeof window.lockProvider === 'function') {
+                        window.VirtualizedTableState.lockProvider = window.lockProvider;
+                        console.log('[WebTableWrapper] Глобальный lockProvider установлен');
+                    }
+
                     window.VirtualizedTableState._initialized = true;
-                    console.log('[WebTableWrapper] 🎉 Глобальная инициализация завершена');
                 }
 
                 setIsReady(true);
 
-                // Останавливаем интервал
                 if (intervalId) clearInterval(intervalId);
                 if (timeoutId) clearTimeout(timeoutId);
 
@@ -738,8 +754,6 @@ const TableWrapper = ({
         return () => {
             if (timeoutId) clearTimeout(timeoutId);
             if (intervalId) clearInterval(intervalId);
-            // НЕ сбрасываем глобальный флаг _initialized!
-            // НЕ сбрасываем isReady!
         };
     }, []); // Пустой массив - выполнится ОДИН РАЗ для каждого экземпляра
 
@@ -776,8 +790,10 @@ const TableWrapper = ({
             headerProvider={memoizedHeaderProvider}
             onCellDoubleClick={handleCellDoubleClick}
             onCellMove={handleCellMove}
+            onDatePickerClick={handleDatePickerClick}
             editMode={editMode}
             dateRange={dateRange}
+            lockMode={lockMode}
             // showFilters={showFilters}
         />
     );

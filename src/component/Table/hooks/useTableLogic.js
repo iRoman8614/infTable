@@ -26,6 +26,7 @@ const processTableData = (dataArray, leafNodes) => {
                 const backgroundColor = columnData.backgroundColor || null;
                 const fontColor = columnData.fontColor || null;
                 const draggable = columnData.draggable === true;
+                const locked = columnData.locked === true || columnData.pinned === true; // ← ДОБАВЛЕНО
                 const rowspan = columnData.rowspan || 1;
                 const colspan = columnData.colspan || 1;
 
@@ -34,6 +35,7 @@ const processTableData = (dataArray, leafNodes) => {
                     backgroundColor: backgroundColor,
                     fontColor: fontColor,
                     draggable: draggable,
+                    locked: locked, // ← ДОБАВЛЕНО
                     displayed: true,
                     rowspan: rowspan,
                     colspan: colspan,
@@ -55,6 +57,7 @@ const processTableData = (dataArray, leafNodes) => {
                         backgroundColor: backgroundColor,
                         fontColor: fontColor,
                         draggable: draggable,
+                        locked: locked, // ← ДОБАВЛЕНО
                         colspan: colspan,
                         children: columnData.children || [],
                         operating: columnData.operating || [],
@@ -72,6 +75,7 @@ const processTableData = (dataArray, leafNodes) => {
                                 backgroundColor: backgroundColor,
                                 fontColor: fontColor,
                                 draggable: draggable,
+                                locked: locked, // ← ДОБАВЛЕНО
                                 displayed: false,
                                 rowspan: 1,
                                 colspan: 1,
@@ -102,6 +106,7 @@ const processTableData = (dataArray, leafNodes) => {
                             backgroundColor: rowspanInfo.backgroundColor,
                             fontColor: rowspanInfo.fontColor,
                             draggable: rowspanInfo.draggable,
+                            locked: rowspanInfo.locked, // ← ДОБАВЛЕНО
                             displayed: false,
                             rowspan: 1,
                             colspan: 1,
@@ -123,6 +128,7 @@ const processTableData = (dataArray, leafNodes) => {
                                         backgroundColor: rowspanInfo.backgroundColor,
                                         fontColor: rowspanInfo.fontColor,
                                         draggable: rowspanInfo.draggable,
+                                        locked: rowspanInfo.locked, // ← ДОБАВЛЕНО
                                         displayed: false,
                                         rowspan: 1,
                                         colspan: 1,
@@ -157,11 +163,13 @@ const processTableData = (dataArray, leafNodes) => {
                         if (prevColumnData && prevColumnData.colspan > 1) {
                             const colspanEnd = prevIndex + prevColumnData.colspan - 1;
                             if (nodeIndex <= colspanEnd) {
+                                const prevLocked = prevColumnData.locked === true || prevColumnData.pinned === true; // ← ДОБАВЛЕНО
                                 elements[leafNodeId] = {
                                     status: prevColumnData.value,
                                     backgroundColor: prevColumnData.backgroundColor || null,
                                     fontColor: prevColumnData.fontColor || null,
                                     draggable: prevColumnData.draggable === true,
+                                    locked: prevLocked, // ← ДОБАВЛЕНО
                                     displayed: false,
                                     rowspan: 1,
                                     colspan: 1,
@@ -188,6 +196,7 @@ const processTableData = (dataArray, leafNodes) => {
                             backgroundColor: null,
                             fontColor: null,
                             draggable: false,
+                            locked: false, // ← ДОБАВЛЕНО (по умолчанию не заблокирована)
                             displayed: true,
                             rowspan: 1,
                             colspan: 1,
@@ -287,7 +296,6 @@ export const useTableLogic = ({
     
     // Колбек для сброса дат при изменении dateRange
     const resetDatesCallback = useCallback(() => {
-        console.log('[Init] Сбрасываем даты');
         setDates([]);
         setIsInitialized(false);
     }, []);
@@ -886,7 +894,6 @@ export const useTableLogic = ({
 
     useEffect(() => {
         const cleanup = () => {
-            console.log('[Init] Компонент размонтируется, сбрасываем глобальный флаг');
             globalInitialized = false;
         };
 

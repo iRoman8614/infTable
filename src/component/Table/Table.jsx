@@ -1,13 +1,13 @@
 import React, {useState, useMemo, useCallback, useEffect} from 'react';
 import { TableHeader } from './components/TableHeader.jsx';
-// import { FilterModal } from './components/FilterModal.jsx';
 import { useTableLogic } from './hooks/useTableLogic.js';
 import { useNodeVisibility } from './hooks/useNodeVisibility.js';
 import { useChildrenVisibility } from './hooks/useChildrenVisibility.js';
 import { useDragAndDrop } from './hooks/useDragAndDrop.js';
+import { useCellLocking } from './hooks/useCellLocking.js';
 import { parseDateString } from './utils/dateUtils.js';
-import { useHeadersLoader, useGlobalClickHandlers } from './hooks/useTableHelpers.js';
-import {getContrastTextColor} from "./utils/ContrastTextColor";
+import { useHeadersLoader } from './hooks/useTableHelpers.js';
+import { getContrastTextColor } from "./utils/ContrastTextColor";
 import '../../styles/table.css';
 
 const ALLOWED_HEADER_TYPES = ['NODE', 'ASSEMBLE'];
@@ -25,7 +25,8 @@ export const Table = ({
                           onCellDoubleClick = null,
                           onCellMove = null,
                           editMode: propEditMode,
-                          // showFilters: propShowFilters,
+                          lockMode: propLockMode,
+                          onDatePickerClick = null,
                           showDeviations: propShowDeviations,
                           dateRange: propDateRange
                       }) => {
@@ -42,15 +43,15 @@ export const Table = ({
             : (propEditMode || false);
     }, [propEditMode]);
 
+    const lockMode = useMemo(() => {
+        return typeof window !== 'undefined' && window.VirtualizedTableState
+            ? window.VirtualizedTableState.lockMode
+            : (propLockMode || false);
+    }, [propLockMode]);
+
     const dateRange = useMemo(() => {
         return dateRangeState;
     }, [dateRangeState]);
-
-    // const showFilters = useMemo(() => {
-    //     return typeof window !== 'undefined' && window.VirtualizedTableState
-    //         ? window.VirtualizedTableState.showFilters
-    //         : (propShowFilters || false);
-    // }, [propShowFilters]);
 
     useEffect(() => {
         let isMounted = true;
@@ -159,7 +160,6 @@ export const Table = ({
         return { tree, maxDepth, leafNodes, nodesMap };
     }, [headersData]);
 
-    // Структура дерева для заголовков (только NODE и ASSEMBLE)
     const treeStructure = useMemo(() => {
         const filteredTree = filterNodesByType(fullTreeStructure.tree, ALLOWED_HEADER_TYPES);
 
@@ -262,13 +262,12 @@ export const Table = ({
 
     const shouldDisplayCell = useCallback((processedRow, nodeId) => {
         if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
-            return true; // Показываем пустую ячейку если нет данных
+            return true;
         }
 
         const element = processedRow.elements[nodeId];
-        return element.displayed !== false; // Отображаем если не явно скрыта
+        return element.displayed !== false;
     }, []);
-
 
     const tableLogic = useTableLogic({
         scrollBatchSize,
@@ -324,13 +323,11 @@ export const Table = ({
                 console.log('[Table] visibleColumns changed:', columnIds);
 
                 if (columnIds.length === 0) {
-                    // Пустой массив - показать все (восстановить дефолтное состояние)
                     filterTreeStructure.nodesMap.forEach((node, nodeId) => {
-                        const shouldBeVisible = node.type !== 'COMPONENT'; // COMPONENT скрыты по умолчанию
+                        const shouldBeVisible = node.type !== 'COMPONENT';
                         filterNodeVisibilityLogic.setNodeVisibilityDirect(nodeId, shouldBeVisible);
                     });
                 } else {
-                    // Непустой массив - показать ТОЛЬКО указанные ID
                     filterTreeStructure.nodesMap.forEach((node, nodeId) => {
                         const shouldBeVisible = columnIds.includes(nodeId);
                         console.log(`[Table] Setting ${nodeId} visibility to ${shouldBeVisible}`);
@@ -338,7 +335,6 @@ export const Table = ({
                     });
                 }
 
-                // Принудительно обновляем viewport
                 if (tableLogic.refreshViewport) {
                     setTimeout(() => {
                         tableLogic.refreshViewport();
@@ -352,23 +348,6 @@ export const Table = ({
         window.addEventListener('virtualized-table-state-change', handleStateChange);
         return () => window.removeEventListener('virtualized-table-state-change', handleStateChange);
     }, [filterNodeVisibilityLogic, filterTreeStructure, tableLogic]);
-
-    // const [childrenData, setChildrenData] = useState(
-    //     (typeof window !== 'undefined' && window.VirtualizedTableState)
-    //         ? window.VirtualizedTableState.childrenData
-    //         : []
-    // );
-    //
-    // useEffect(() => {
-    //     const handleStateChange = (event) => {
-    //         if (event.detail.property === 'childrenData') {
-    //             setChildrenData(event.detail.value);
-    //         }
-    //     };
-    //
-    //     window.addEventListener('virtualized-table-state-change', handleStateChange);
-    //     return () => window.removeEventListener('virtualized-table-state-change', handleStateChange);
-    // }, []);
 
     const [showDeviations, setShowDeviations] = useState(
         (typeof window !== 'undefined' && window.VirtualizedTableState)
@@ -407,6 +386,40 @@ export const Table = ({
 
     // Drag & Drop функциональность
     const dragDropHandlers = useDragAndDrop(editMode, onCellMove);
+
+    // Обработчик блокировки ячеек
+    const handleCellLock = useCallback((lockData) => {
+        console.log('[Table] Cell lock event, preparing data:', lockData);
+
+        // if (onCellLock) {
+        //     try {
+        //         const jsonString = JSON.stringify(lockData);
+        //         console.log('[Table] CellLock - возвращаем JSON string:', jsonString);
+        //         onCellLock(jsonString);
+        //     } catch (error) {
+        //         console.error('[Table] Cell lock error:', error);
+        //     }
+        // }
+
+        // if (typeof window !== 'undefined' && window.VirtualizedTableState?.onCellLock) {
+        //     try {
+        //         const jsonString = JSON.stringify(lockData);
+        //         console.log('[Table] CellLock - вызываем глобальный обработчик с JSON string');
+        //         window.VirtualizedTableState.onCellLock(jsonString);
+        //     } catch (error) {
+        //         console.error('Ошибка в VirtualizedTableState.onCellLock:', error);
+        //     }
+        // }
+
+        const customEvent = new CustomEvent('table-cell-lock', {
+            detail: lockData,
+            bubbles: true
+        });
+        window.dispatchEvent(customEvent);
+    }, []);
+
+    // Cell Locking функциональность
+    const cellLocking = useCellLocking(lockMode, handleCellLock, tableLogic.refreshViewport);
 
     const hasDoubleClickHandlers = useMemo(() => {
         const hasProps = !!onCellDoubleClick;
@@ -484,23 +497,18 @@ export const Table = ({
         return value;
     }, []);
 
-    // Получение цвета ячейки из данных
     const getCellColor = useCallback((processedRow, nodeId) => {
         return processedRow?.elements?.[nodeId]?.color || null;
     }, []);
 
-    // Получение цвета фона ячейки из данных
     const getCellBackgroundColor = useCallback((processedRow, nodeId) => {
         return processedRow?.elements?.[nodeId]?.backgroundColor || null;
     }, []);
 
-    // Получение цвета текста ячейки из данных
     const getCellFontColor = useCallback((processedRow, nodeId) => {
         return processedRow?.elements?.[nodeId]?.fontColor || null;
     }, []);
 
-
-    // Получение флага draggable из данных
     const getCellDraggable = useCallback((processedRow, nodeId) => {
         if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
             return false;
@@ -510,17 +518,14 @@ export const Table = ({
         return element.draggable === true;
     }, []);
 
-    // Функция проверки нужно ли отображать ячейку (учитывает rowspan и colspan)
-    // const shouldDisplayCell = useCallback((processedRow, nodeId) => {
-    //     if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
-    //         return true; // Показываем пустую ячейку если нет данных
-    //     }
-    //
-    //     const element = processedRow.elements[nodeId];
-    //     return element.displayed !== false; // Отображаем если не явно скрыта
-    // }, []);
+    const isCellLocked = useCallback((processedRow, nodeId) => {
+        if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
+            return false;
+        }
+        const element = processedRow.elements[nodeId];
+        return element.locked === true || element.pinned === true;
+    }, []);
 
-    // Функция получения rowspan
     const getCellRowspan = useCallback((processedRow, nodeId) => {
         if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
             return 1;
@@ -530,7 +535,6 @@ export const Table = ({
         return element.displayed === false ? 0 : (element.rowspan || 1);
     }, []);
 
-    // Функция получения colspan
     const getCellColspan = useCallback((processedRow, nodeId) => {
         if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
             return 1;
@@ -539,36 +543,6 @@ export const Table = ({
         const element = processedRow.elements[nodeId];
         return element.displayed === false ? 0 : (element.colspan || 1);
     }, []);
-
-    // const getCellChildren = useCallback((processedRow, nodeId) => {
-    //     if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
-    //         return [];
-    //     }
-    //
-    //     const element = processedRow.elements[nodeId];
-    //     const children = element.children || [];
-    //     const result = [];
-    //
-    //     children.forEach(child => {
-    //         if (child.subChildren && Array.isArray(child.subChildren)) {
-    //             child.subChildren.forEach(subChild => {
-    //                 result.push({
-    //                     ...subChild,
-    //                     parentId: child.id
-    //                 });
-    //             });
-    //         } else if (child.value) {
-    //             result.push({
-    //                 id: child.id,
-    //                 value: child.value,
-    //                 name: child.name,
-    //                 parentId: null
-    //             });
-    //         }
-    //     });
-    //
-    //     return result;
-    // }, []);
 
     const getCellShift = useCallback((processedRow, nodeId) => {
         if (!processedRow || !processedRow.elements || !processedRow.elements[nodeId]) {
@@ -604,30 +578,39 @@ export const Table = ({
         return element.operating || [];
     }, []);
 
-    // const getVisibleCellChildren = useCallback((processedRow, nodeId) => {
-    //     const children = getCellChildren(processedRow, nodeId);
-    //     if (children.length === 0) return [];
-    //
-    //     const result = children.filter(child => {
-    //         if (child.parentId === 'shift' || child.id === 'shift') {
-    //             return false;
-    //         }
-    //
-    //         if (childrenData.length === 0) {
-    //             return false;
-    //         }
-    //
-    //         const isIncluded = childrenData.includes(child.id);
-    //         return isIncluded;
-    //     });
-    //     return result;
-    // }, [getCellChildren, childrenData]);
-
     const hasAnyVisibleChildren = useMemo(() => {
         return Object.values(childrenVisibilityLogic.childrenVisibility).some(nodeChildren =>
             Object.values(nodeChildren).some(isVisible => isVisible)
         );
     }, [childrenVisibilityLogic.childrenVisibility]);
+
+    // Синхронизация lockMode
+    const [lockModeState, setLockModeState] = useState(lockMode);
+
+    useEffect(() => {
+        const handleStateChange = (event) => {
+            if (event.detail.property === 'lockMode') {
+                console.log('[Table] lockMode changed to:', event.detail.value);
+                setLockModeState(event.detail.value);
+            } else if (event.detail.property === 'editMode' && event.detail.value === true) {
+                setLockModeState(false);
+            }
+        };
+
+        window.addEventListener('virtualized-table-state-change', handleStateChange);
+        return () => window.removeEventListener('virtualized-table-state-change', handleStateChange);
+    }, []);
+
+    // Добавляем класс lock-mode к контейнеру
+    useEffect(() => {
+        if (tableLogic.containerRef.current) {
+            if (lockModeState) {
+                tableLogic.containerRef.current.classList.add('lock-mode');
+            } else {
+                tableLogic.containerRef.current.classList.remove('lock-mode');
+            }
+        }
+    }, [lockModeState, tableLogic.containerRef]);
 
     let startIndex, endIndex, visibleDates, paddingTop, paddingBottom;
 
@@ -652,7 +635,7 @@ export const Table = ({
                 const dateString = tableLogic.dates[i];
                 const processedRow = tableLogic.processedCache[dateString];
 
-                let rowHeight = 40; // Высота по умолчанию
+                let rowHeight = 40;
                 if (processedRow) {
                     const hasChildrenInRow = visibleLeafNodes.some(leafNode => {
                         if (!shouldDisplayCell(processedRow, leafNode.id)) return false;
@@ -669,7 +652,6 @@ export const Table = ({
                 currentPosition += rowHeight;
             }
 
-            // Находим индекс строки, которая находится в нижней части viewport
             let visibleEnd = tableLogic.dates.length;
             currentPosition = 0;
 
@@ -677,7 +659,7 @@ export const Table = ({
                 const dateString = tableLogic.dates[i];
                 const processedRow = tableLogic.processedCache[dateString];
 
-                let rowHeight = 40; // Высота по умолчанию
+                let rowHeight = 40;
                 if (processedRow) {
                     const hasChildrenInRow = visibleLeafNodes.some(leafNode => {
                         if (!shouldDisplayCell(processedRow, leafNode.id)) return false;
@@ -706,11 +688,9 @@ export const Table = ({
         endIndex = dynamicViewport.end;
         visibleDates = tableLogic.dates.slice(startIndex, endIndex);
 
-        // Вычисляем динамические отступы
         let topPadding = 0;
         let bottomPadding = 0;
 
-        // paddingTop - сумма высот всех строк до startIndex
         for (let i = 0; i < startIndex; i++) {
             const dateString = tableLogic.dates[i];
             const processedRow = tableLogic.processedCache[dateString];
@@ -727,7 +707,6 @@ export const Table = ({
             }
         }
 
-        // paddingBottom - сумма высот всех строк после endIndex
         for (let i = endIndex; i < tableLogic.dates.length; i++) {
             const dateString = tableLogic.dates[i];
             const processedRow = tableLogic.processedCache[dateString];
@@ -747,7 +726,6 @@ export const Table = ({
         paddingTop = topPadding;
         paddingBottom = bottomPadding;
     } else {
-        // Статический режим: используем стандартную логику
         const { start, end } = tableLogic.visibleRange;
         startIndex = start;
         endIndex = end;
@@ -756,7 +734,6 @@ export const Table = ({
         paddingBottom = Math.max(0, (tableLogic.dates.length - endIndex) * tableLogic.rowHeight);
     }
 
-    // Отображение ошибки
     if (headersError) {
         return (
             <div className="vt-error">
@@ -769,7 +746,6 @@ export const Table = ({
         );
     }
 
-    // Отображение загрузки заголовков
     if (headersLoading) {
         return (
             <div className="vt-loading">
@@ -781,27 +757,9 @@ export const Table = ({
 
     return (
         <>
-            {/*<FilterModal*/}
-            {/*    isOpen={showFilters}*/}
-            {/*    onClose={() => {*/}
-            {/*        if (typeof window !== 'undefined' && window.VirtualizedTableAPI) {*/}
-            {/*            window.VirtualizedTableAPI.setShowFilters(false);*/}
-            {/*        }*/}
-            {/*    }}*/}
-            {/*    filteredTree={filterNodeVisibilityLogic.filteredTree}*/}
-            {/*    nodeVisibility={filterNodeVisibilityLogic.nodeVisibility}*/}
-            {/*    expandedNodes={filterNodeVisibilityLogic.expandedNodes}*/}
-            {/*    searchTerm={filterNodeVisibilityLogic.searchTerm}*/}
-            {/*    setSearchTerm={filterNodeVisibilityLogic.setSearchTerm}*/}
-            {/*    toggleNodeVisibility={toggleFilterNodeVisibility}*/}
-            {/*    toggleNodeExpansion={filterNodeVisibilityLogic.toggleNodeExpansion}*/}
-            {/*    childrenVisibility={childrenVisibilityLogic.childrenVisibility}*/}
-            {/*    toggleChildrenVisibility={childrenVisibilityLogic.toggleChildrenVisibility}*/}
-            {/*/>*/}
-
             <div
                 ref={tableLogic.containerRef}
-                className="vt-container"
+                className={`vt-container ${lockModeState ? 'lock-mode' : ''}`}
                 style={{ maxWidth, maxHeight }}
                 onScroll={tableLogic.handleScroll}
             >
@@ -812,6 +770,7 @@ export const Table = ({
                         activeColorTheme={activeColorTheme}
                         allowedTypes={ALLOWED_HEADER_TYPES}
                         jumpToDate={tableLogic.jumpToDate}
+                        onDatePickerClick={onDatePickerClick}
                         onFilterClick={() => {
                             if (typeof window !== 'undefined' && window.VirtualizedTableAPI) {
                                 window.VirtualizedTableAPI.setShowFilters(true);
@@ -864,6 +823,7 @@ export const Table = ({
                                     const cellBackgroundColor = processedRow ? getCellBackgroundColor(processedRow, leafNode.id) : null;
                                     const cellFontColor = processedRow ? getCellFontColor(processedRow, leafNode.id) : null;
                                     const isDraggable = processedRow ? getCellDraggable(processedRow, leafNode.id) : false;
+                                    const isLocked = processedRow ? isCellLocked(processedRow, leafNode.id) : false;
                                     const cellRowspan = processedRow ? getCellRowspan(processedRow, leafNode.id) : 1;
                                     const cellColspan = processedRow ? getCellColspan(processedRow, leafNode.id) : 1;
                                     const cellChildren = processedRow ? getVisibleCellChildren(processedRow, leafNode.id) : [];
@@ -872,21 +832,25 @@ export const Table = ({
                                     const clickKey = `${dateString}-${leafNode.id}`;
                                     const isCellLoading = clickLoading.has(clickKey);
 
-                                    const dragStyles = dragDropHandlers.getCellDragStyles(
+                                    const dragStyles = editMode ? dragDropHandlers.getCellDragStyles(
                                         dateString,
                                         leafNode.id,
                                         cellBackgroundColor || activeColorTheme(cellValue, isPastDate),
                                         isDraggable
-                                    );
+                                    ) : {};
 
-                                    // Определяем итоговый цвет текста
-                                    const finalFontColor = cellFontColor || getContrastTextColor(cellBackgroundColor || activeColorTheme(cellValue, isPastDate));
+                                    //const lockClasses = lockModeState ? cellLocking.getCellLockClass(dateString, leafNode.id, isLocked) : '';
+                                    const lockClasses = cellLocking.getCellLockClass(isLocked, lockModeState);
+
+                                    const finalBackgroundColor = cellBackgroundColor || activeColorTheme(cellValue, isPastDate);
+                                    const finalFontColor = cellFontColor || getContrastTextColor(finalBackgroundColor);
 
                                     return (
                                         <td
                                             key={`${dateString}-${leafNode.id}`}
                                             rowSpan={cellRowspan > 1 ? cellRowspan : undefined}
                                             colSpan={cellColspan > 1 ? cellColspan : undefined}
+
                                             draggable={editMode && isDraggable}
                                             onDoubleClick={editMode && hasDoubleClickHandlers ? (event) => {
                                                 console.log('[Table] Cell double-clicked, calling double click handler');
@@ -897,8 +861,13 @@ export const Table = ({
                                             onDragOver={editMode ? (e) => dragDropHandlers.handleDragOver(e, dateString, leafNode.id, isDraggable) : undefined}
                                             onDragLeave={editMode ? dragDropHandlers.handleDragLeave : undefined}
                                             onDrop={editMode && isDraggable ? (e) => dragDropHandlers.handleDrop(e, dateString, leafNode.id, isDraggable) : undefined}
-                                            className="vt-cell"
+
+                                            onMouseDown={lockModeState ? (e) => cellLocking.handleMouseDown(e, dateString, leafNode.id, isLocked) : undefined}
+                                            onMouseOver={lockModeState ? () => cellLocking.handleMouseOver(dateString, leafNode.id, isLocked) : undefined}
+
+                                            className={`vt-cell ${lockClasses}`}
                                             style={{
+                                                backgroundColor: finalBackgroundColor,
                                                 color: finalFontColor,
                                                 width: cellColspan > 1 ? `${cellColspan * 50}px` : undefined,
                                                 ...dragStyles

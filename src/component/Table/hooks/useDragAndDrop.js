@@ -121,9 +121,9 @@ export const useDragAndDrop = (editMode, onCellMove) => {
                     ? '#fff3e0'
                     : defaultColor,
             border: isOver && canDrop ? '2px dashed #2196f3' : undefined,
-            cursor: editMode
-                ? (canDrop ? 'move' : 'grab')
-                : undefined,
+            // cursor: editMode
+            //     ? (canDrop ? 'move' : 'grab')
+            //     : undefined,
             transition: 'background-color 0.2s, border 0.2s'
         };
     }, [editMode, isDragSource, isDragOver, canDropHere]);

@@ -7,8 +7,10 @@ window.VirtualizedTableState = {
     // Провайдеры данных
     dataProvider: null,
     headerProvider: null,
+    lockProvider: null,
     // Режимы отображения
     editMode: false,
+    lockMode: false,
     // showFilters: false,
     showDeviations: false,
     visibleColumns: [],
@@ -17,6 +19,7 @@ window.VirtualizedTableState = {
     dateRange: null,
     // Обработчики событий
     onCellDoubleClick: null,
+    onDatePickerClick: null,
     onCellMove: null,
     // Внутренние состояния (только для чтения)
     _initialized: false,
@@ -102,10 +105,27 @@ window.VirtualizedTableAPI = {
      * Установить режим редактирования
      * @param {boolean} enabled - включить/выключить режим редактирования
      */
+    // setEditMode(enabled) {
+    //     if (typeof enabled !== 'boolean') {
+    //         console.warn('[VirtualizedTableAPI] setEditMode expects boolean');
+    //         return;
+    //     }
+    //
+    //     window.VirtualizedTableState.editMode = enabled;
+    //     console.log('[VirtualizedTableAPI] Edit mode set to:', enabled);
+    //
+    //     this._dispatchStateEvent('editMode', enabled);
+    // },
     setEditMode(enabled) {
         if (typeof enabled !== 'boolean') {
             console.warn('[VirtualizedTableAPI] setEditMode expects boolean');
             return;
+        }
+
+        if (enabled && window.VirtualizedTableState.lockMode) {
+            console.log('[VirtualizedTableAPI] Отключаем lockMode при включении editMode');
+            window.VirtualizedTableState.lockMode = false;
+            this._dispatchStateEvent('lockMode', false);
         }
 
         window.VirtualizedTableState.editMode = enabled;
@@ -113,6 +133,74 @@ window.VirtualizedTableAPI = {
 
         this._dispatchStateEvent('editMode', enabled);
     },
+
+    /**
+     * Установить режим блокировки ячеек
+     * @param {boolean} enabled - включить/выключить режим блокировки
+     */
+    setLockMode(enabled) {
+        if (typeof enabled !== 'boolean') {
+            console.warn('[VirtualizedTableAPI] setLockMode expects boolean');
+            return;
+        }
+
+        if (enabled && window.VirtualizedTableState.editMode) {
+            console.log('[VirtualizedTableAPI] Отключаем editMode при включении lockMode');
+            window.VirtualizedTableState.editMode = false;
+            this._dispatchStateEvent('editMode', false);
+        }
+
+        window.VirtualizedTableState.lockMode = enabled;
+        console.log('[VirtualizedTableAPI] Lock mode set to:', enabled);
+
+        this._dispatchStateEvent('lockMode', enabled);
+    },
+
+    /**
+     * Установить провайдер блокировки
+     * @param {function} provider - функция провайдера блокировки
+     * provider(lockDataJson: string) => Promise<void> | void
+     *
+     * lockDataJson = JSON string с форматом:
+     * {
+     *   "cells": [{"date": "2025-01-15", "nodeId": "node1", state}],
+     *   "button": 0,
+     *   "state": "true"
+     * }
+     */
+    setLockProvider(provider) {
+        if (typeof provider !== 'function') {
+            console.warn('[VirtualizedTableAPI] setLockProvider expects function');
+            return;
+        }
+
+        if (window.VirtualizedTableState.lockProvider === provider) {
+            console.log('[VirtualizedTableAPI] Lock provider уже установлен, пропускаем');
+            return;
+        }
+
+        window.VirtualizedTableState.lockProvider = provider;
+        console.log('[VirtualizedTableAPI] ✅ Lock provider установлен');
+
+        this._dispatchStateEvent('lockProvider', provider);
+    },
+
+    // /**
+    //  * Установить обработчик блокировки ячеек
+    //  * @param {function} handler - функция обработчик (lockDataJson: string) => void
+    //  *
+    //  * DEPRECATED: Используйте setLockProvider для автоматической обработки и обновления данных
+    //  */
+    // setOnCellLock(handler) {
+    //     if (typeof handler !== 'function') {
+    //         console.warn('[VirtualizedTableAPI] setOnCellLock expects function');
+    //         return;
+    //     }
+    //
+    //     window.VirtualizedTableState.onCellLock = handler;
+    //     console.log('[VirtualizedTableAPI] Cell lock handler set');
+    // },
+
 
     // /**
     //  * Установить видимость панели фильтров
@@ -153,7 +241,6 @@ window.VirtualizedTableAPI = {
      *   ['01.01.2025', '31.12.2025'] или ['2025-01-01', '2025-12-31'] = ограниченная таблица с буфером ±10 дней
      */
     setDateRange(range) {
-        // Валидация: должен быть null, пустой массив, или массив из 2 строк
         if (range !== null && (!Array.isArray(range) || (range.length !== 0 && range.length !== 2))) {
             console.warn('[VirtualizedTableAPI] setDateRange expects null, [], or array of 2 dates');
             return;
@@ -235,9 +322,9 @@ window.VirtualizedTableAPI = {
      * Обновить viewport таблицы принудительно
      */
     refreshViewport() {
-        if (typeof window.VirtualizedTableState.refreshTableViewport === 'function') {
+        if (typeof window.VirtualizedTableState.refreshViewport === 'function') {
             console.log('[VirtualizedTableAPI] Refreshing viewport...');
-            window.VirtualizedTableState.refreshTableViewport();
+            window.VirtualizedTableState.refreshViewport();
         } else {
             console.warn('[VirtualizedTableAPI] Table not initialized or refresh function not available');
         }
@@ -254,6 +341,20 @@ window.VirtualizedTableAPI = {
         } else {
             console.warn('[VirtualizedTableAPI] Table not initialized or jumpToDate function not available');
         }
+    },
+
+    /**
+     * Установить обработчик клика по кнопке выбора даты
+     * @param {function} handler - функция обработчик () => void
+     */
+    setOnDatePickerClick(handler) {
+        if (typeof handler !== 'function') {
+            console.warn('[VirtualizedTableAPI] setOnDatePickerClick expects function');
+            return;
+        }
+
+        window.VirtualizedTableState.onDatePickerClick = handler;
+        console.log('[VirtualizedTableAPI] Date picker click handler set');
     },
 
     /**
@@ -340,8 +441,12 @@ window.VirtualizedTableAPI = {
             error: window.VirtualizedTableState._error,
             hasDataProvider: !!window.VirtualizedTableState.dataProvider,
             hasHeaderProvider: !!window.VirtualizedTableState.headerProvider,
+            hasLockProvider: !!window.VirtualizedTableState.lockProvider,
             hasOnCellDoubleClick: !!window.VirtualizedTableState.onCellDoubleClick,
             hasOnCellMove: !!window.VirtualizedTableState.onCellMove,
+            hasOnCellLock: !!window.VirtualizedTableState.onCellLock,
+            editMode: window.VirtualizedTableState.editMode,
+            lockMode: window.VirtualizedTableState.lockMode,
             dateRange: window.VirtualizedTableState.dateRange,
             dateRangeMode: window.VirtualizedTableState.dateRange ? 'LIMITED' : 'INFINITE'
         };
